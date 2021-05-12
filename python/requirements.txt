@@ -1,0 +1,5 @@
+# Additional requirements for Python scripts.
+#
+# These can be related to plotting and/or testing, and are installed alongside
+# the registration of model tests. For installing these dependencies, the
+# build system will invoke pip; see its documentation for allowed syntax.
