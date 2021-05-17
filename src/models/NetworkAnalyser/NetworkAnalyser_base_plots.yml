@@ -2,12 +2,12 @@
 graph:
   based_on: .dag.graph
   dag_options:
-    select_path_prefix: data/KronGen/NetworkAnalyser
+    select_path_prefix: data/NetworkAnalyser
 
 network_stats:
   creator: universe
   universes: all
-  module: model_plots.KronGen
+  module: model_plots.NetworkAnalyser
   plot_func: network_stats
 
 multiverse.errorbars:

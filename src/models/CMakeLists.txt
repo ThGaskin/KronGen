@@ -15,6 +15,7 @@ message(STATUS "")
 message(STATUS "Starting Utopia model registration ...")
 
 # Register the model directories
+add_subdirectory(NetworkAnalyser)
 add_subdirectory(KronGen)
 
 # NOTE Add your subdirectory above (alphabetically sorted)

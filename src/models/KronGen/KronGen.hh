@@ -1,32 +1,109 @@
 #ifndef UTOPIA_MODELS_KRONGEN_HH
 #define UTOPIA_MODELS_KRONGEN_HH
-// TODO Adjust above include guard (and at bottom of file)
 
 // standard library includes
 #include <random>
 
 // third-party library includes
+#include <boost/graph/adjacency_list.hpp>
+#include <boost/graph/adjacency_matrix.hpp>
 
 // Utopia-related includes
 #include <utopia/core/model.hh>
 #include <utopia/core/types.hh>
 
+// Kronecker Graph generation file
+#include "graph_creation.hh"
+
+// The NetworkAnalyser
+#include "../NetworkAnalyser/NetworkAnalyser.hh"
 
 namespace Utopia::Models::KronGen {
 
 // ++ Type definitions ++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 
+using vector = typename std::vector<double>;
+
+// -- Vertex ------------------------------------------------------------------
+
+struct VertexState
+{
+    // Betweenness centrality
+    double betweenness;
+
+    // Closeness centrality
+    double closeness;
+
+    // The vertex' clustering coefficient, for not having to compute repeatedly
+    double clustering_coeff;
+
+    // Core number
+    size_t core_number = 0;
+
+    // Degree
+    size_t degree;
+
+    // Expected distance to a random other vertex
+    double distance_avg;
+
+    // Harmonic average of distances
+    double distance_harmonic;
+
+    // Maximum distance to a random other vertex
+    double distance_max;
+
+    // Fraction of outgoing links for which the mutual link exists as well
+    // (directed only)
+    double reciprocity;
+
+};
+
+/// The traits of a vertex are just the traits of a graph entity
+using VertexTraits = GraphEntityTraits<VertexState>;
+
+/// A vertex is a graph entity with vertex traits
+using Vertex = GraphEntity<VertexTraits>;
+
+/// The vertex container type
+using VertexContainer = boost::vecS;
+
+// -- Edge --------------------------------------------------------------------
+
+struct EdgeState
+{
+    size_t weight = 1.0;
+};
+
+/// The traits of an edge are just the traits of a graph entity
+using EdgeTraits = GraphEntityTraits<EdgeState>;
+
+/// An edge is a graph entity with edge traits
+using Edge = GraphEntity<EdgeTraits>;
+
+/// The edge container type
+using EdgeContainer = boost::vecS;
+
+// -- Graph -------------------------------------------------------------------
+// undirected graph
+
+using GraphType = boost::adjacency_list<EdgeContainer,
+                                        VertexContainer,
+                                        boost::undirectedS,
+                                        Vertex,
+                                        boost::property<
+                                          boost::edge_weight_t,
+                                          double,
+                                          EdgeState>>;
+
 /// Type helper to define types used by the model
 using ModelTypes = Utopia::ModelTypes<>;
 
+// Network analyser
+using NWAnalyser = NetworkAnalyser::NetworkAnalyser<GraphType>;
 
 // ++ Model definition ++++++++++++++++++++++++++++++++++++++++++++++++++++++++
-/// The KronGen Model; the bare-basics a model needs
-/** TODO Add your class description here.
- *  ...
- */
-class KronGen:
-    public Model<KronGen, ModelTypes>
+/// The KronGen Model
+class KronGen: public Model<KronGen, ModelTypes>
 {
 public:
     /// The type of the Model base class of this derived class
@@ -38,36 +115,40 @@ public:
     /// Data type for a dataset
     using DataSet = typename Base::DataSet;
 
+    // .. Graph-related types and rule types ..................................
+
+    /// Data type for a vertex descriptor
+    using VertexDesc =
+        typename boost::graph_traits<GraphType>::vertex_descriptor;
+
+    /// Data type for an edge descriptor
+    using EdgeDesc = typename boost::graph_traits<GraphType>::edge_descriptor;
+
+    /// Data type for a rule function operating on vertices returning void
+    using VertexVoidRule = typename std::function<void(VertexDesc, GraphType&)>;
+
+    /// Data type for a rule function operating on vertices returning a state
+    using VertexStateRule =
+        typename std::function<VertexState(VertexDesc, GraphType&)>;
+
+    /// Data type for a rule function operating on edges returning void
+    using EdgeVoidRule = typename std::function<void(EdgeDesc, GraphType&)>;
+
+    /// Data type for a rule function operating on edges returning a state
+    using EdgeStateRule =
+        typename std::function<EdgeState(EdgeDesc, GraphType&)>;
 
 private:
-    // Base members: _time, _name, _cfg, _hdfgrp, _rng, _monitor, _space
-    // ... but you should definitely check out the documentation ;)
 
-    // -- Members -------------------------------------------------------------
+  GraphType _g;
 
-
-    // .. Temporary objects ...................................................
-
-
-    // .. Datasets ............................................................
-    // NOTE They should be named '_dset_<name>', where <name> is the
-    //      dataset's actual name as set in its constructor. Ideally, do not
-    //      hide them inside a struct ...
-    // std::shared_ptr<DataSet> _dset_my_var;
+  NWAnalyser _nwanalyser;
 
 
 public:
     // -- Model Setup ---------------------------------------------------------
 
     /// Construct the KronGen model
-    /** \param name             Name of this model instance; is used to extract
-     *                          the configuration from the parent model and
-     *                          set up a HDFGroup for this instance
-     *  \param parent_model     The parent model this model instance resides in
-     *  \param custom_cfg       A custom configuration to use instead of the
-     *                          one extracted from the parent model using the
-     *                          instance name
-     */
     template<class ParentModel>
     KronGen (
         const std::string& name,
@@ -75,54 +156,46 @@ public:
         const DataIO::Config& custom_cfg = {}
     )
     :
-        Base(name, parent_model, custom_cfg)
+        Base(name, parent_model, custom_cfg),
+
+        _g(initialize_graph()),
+
+        _nwanalyser("NetworkAnalyser", *this, _g)
+
     {}
 
 
 private:
     // .. Setup functions .....................................................
 
+    GraphType initialize_graph() {
+
+      this->_log->info("Creating the graph ...");
+
+      GraphType g = GraphCreation::create_Kronecker_graph<GraphType>(
+            this->_cfg["create_graph"],
+            *this->_rng
+      );
+
+      this->_log->info("Graph creation complete.");
+
+      return g;
+    }
+
     // .. Helper functions ....................................................
 
 public:
     // -- Public Interface ----------------------------------------------------
-    // .. Simulation Control ..................................................
 
-    /// Iterate a single step
-    /** \details Here you can add a detailed description what exactly happens
-      *         in a single iteration step
-      */
-    void perform_step () {
-
+    void prolog () {
+        _nwanalyser.prolog();
     }
-
-
-    /// Monitor model information
-    /** \details Here, functions and values can be supplied to the monitor that
-     *          are then available to the frontend. The monitor() function is
-     *          _only_ called if a certain emit interval has passed; thus, the
-     *          performance hit is small.
-     */
-    void monitor () {
-        // Can supply information to the monitor here in two ways:
-        // this->_monitor.set_entry("key", value);
-        // this->_monitor.set_entry("key", [this](){return 42.;});
+    void perform_step () {}
+    void monitor () {}
+    void write_data () {}
+    void epilog () {
+        _nwanalyser.epilog();
     }
-
-
-    /// Write data
-    /** \details This function is called to write out data.
-      *          The configuration determines at which times data is written.
-      *          See \ref Utopia::DataIO::Dataset::write
-      */
-    void write_data () {
-        // Example:
-        // _dset_foo->write(it.begin(), it.end(),
-        //     [](const auto& element) {
-        //         return element.get_value();
-        // });
-    }
-
 
     // Getters and setters ....................................................
     // Add getters and setters here to interface with other model

@@ -39,10 +39,6 @@ nw_stats:
   based_on: network_stats
   #range: [-1000, 1000]
   bins: 100
-  helpers:
-    set_scales:
-      x: log
-      y: log
 
 nw_stats_sweep:
   based_on: multiverse.errorbars
@@ -50,8 +46,11 @@ nw_stats_sweep:
     fields:
       p_rewire:
         path: cfg/NetworkAnalyser
-      param:
-        path: data/KronGen/NetworkAnalyser/graph_data/clustering_coeff
+        transform:
+          - getitem: [!dag_prev , create_graph]
+          - getitem: [!dag_prev , num_vertices]
+      distances:
+        path: data/NetworkAnalyser/graph_data/distance_avg
         transform:
           - operation: .isel
             args: [!dag_prev ]
@@ -60,31 +59,31 @@ nw_stats_sweep:
 
   transform:
     - operation: .mean
-      args: [!dag_tag param]
+      args: [!dag_tag distances]
       kwargs:
         dim: vertex_idx
-      tag: means
+      tag: distance_means
     - operation: .std
-      args: [!dag_tag param]
+      args: [!dag_tag distances]
       kwargs:
         dim: vertex_idx
         ddof: 1
-      tag: stds
+      tag: distance_stds
     - operation: xr.Dataset
       kwargs:
         data_vars:
-          D: !dag_tag means
-          dD: !dag_tag stds
+          D: !dag_tag distance_means
+          dD: !dag_tag distance_stds
       tag: data
 
-  x: p_rewire
+  x: num_vertices
   y: D
   yerr: dD
   capsize: 2
   marker: o
   helpers:
     set_title:
-      title: Average clustering coeff
+      title: Average shortest path length
     set_labels:
-      x: p_rewire
+      x: num_vertices
       y: avg shortest path distance

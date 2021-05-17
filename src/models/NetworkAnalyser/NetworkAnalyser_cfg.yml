@@ -1,0 +1,44 @@
+# The model configuration for the NetworkAnalyser model
+---
+# -- Network and agent initialization -----------------------------------------
+create_graph:
+  model: WattsStrogatz
+  num_vertices: 200
+  mean_degree: 4
+
+  # --- Model-specific parameters
+  ErdosRenyi:
+    # Allow parallel edges
+    parallel: true
+
+    # Allow self edges
+    self_edges: false
+
+  WattsStrogatz:
+    # Rewiring probability
+    p_rewire: 0.2
+    oriented: false
+
+  BarabasiAlbert:
+    # Allow parallel edges
+    parallel: false
+
+  BollobasRiordan:
+    # Graph generating parameters
+    alpha: 0.2
+    beta: 0.8
+    gamma: 0.
+    del_in: 0.
+    del_out: 0.5
+
+  KlemmEguiluz:
+    a: .01
+
+graph_analysis:
+  enabled: true
+  centralities: false
+  clustering_coeff: false
+  core_number: true
+  degree: true
+  distances: true
+  reciprocity: false
