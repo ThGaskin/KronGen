@@ -17,9 +17,6 @@ Graph1:
         WattsStrogatz:
           oriented: false
           p_rewire: 0.2
-    assert_num_vertices: 100
-    assert_mean_degree: 16
-
 Graph2:
   params:
     model: Kronecker
@@ -34,9 +31,6 @@ Graph2:
         ErdosRenyi:
           self_edges: false
           parallel: false
-    assert_num_vertices: 210
-    assert_mean_degree: 58
-
 Graph3:
   params:
     model: Kronecker
@@ -54,5 +48,13 @@ Graph3:
       Graph3:
         model: complete
         num_vertices: 6
-    assert_num_vertices: 1260
-    assert_mean_degree: 208
+Graph4:
+  params:
+    model: Kronecker
+    Kronecker:
+      Graph1:
+        num_vertices: 5
+        model: complete
+      Graph2:
+        num_vertices: 5
+        model: complete

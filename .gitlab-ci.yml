@@ -66,7 +66,7 @@ workflow:
 .dind: &dind
   image: docker:stable
   tags:
-    - dind
+    - docker
   services:
     - docker:dind
   variables:
@@ -134,11 +134,13 @@ update:brewtopia-models:
 prep:framework:
   <<: [*artifacts]
   stage: prep
-  tags: [singlecore]
   script:
     # Create a build directory and run cmake
     - cd $CI_PROJECT_DIR && mkdir build && cd build
-    - cmake -DCPP_COVERAGE=On ..
+    - cmake
+      -DCPP_COVERAGE=On ..
+      -DHDF5_ROOT=$(brew --prefix hdf5)
+
 
     # Show available models
     - $RUN_IN_UTOPIA_ENV utopia models ls
@@ -157,7 +159,6 @@ prep:framework:
 build:all: &build
   <<: *artifacts
   stage: build
-  tags: [multicore]
   dependencies: ['prep:framework']
   before_script:
     # Copy the frontend-generated configuration, carried over as artifacts,
@@ -167,8 +168,8 @@ build:all: &build
     - &copy_cmake_reg_to_home cp -r $CI_PROJECT_DIR/.cmake ~/
   script:
     - cd $CI_PROJECT_DIR/build
-    - make $MAKE_FLAGS_BUILD all
-    - make $MAKE_FLAGS_BUILD build_tests_all
+    - make $MAKE_FLAGS_BUILD KronGen
+    - make $MAKE_FLAGS_BUILD build_tests_model_KronGen
 
 build:debug: &build_debug
   <<: *build
@@ -179,7 +180,8 @@ build:debug: &build_debug
     - cd $CI_PROJECT_DIR/build
     - cmake
         -DCMAKE_BUILD_TYPE=Debug
-        -DCMAKE_CXX_FLAGS_DEBUG="-Werror"
+        -DCMAKE_CXX_FLAGS_DEBUG="-Wall -Werror"
+        -DHDF5_ROOT=$(brew --prefix hdf5)
       ..
 
 build:debug-clang:
@@ -194,12 +196,12 @@ build:debug-clang:
         -DCMAKE_C_COMPILER=clang
         -DCMAKE_CXX_COMPILER=clang++
         -DCMAKE_CXX_FLAGS_DEBUG="-Werror"
+        -DHDF5_ROOT=$(brew --prefix hdf5)
       ..
 
 build:docs:
   <<: *build
   allow_failure: true
-  tags: [singlecore]
   script:
     - cd $CI_PROJECT_DIR/build
     - cmake ..
@@ -221,24 +223,9 @@ build:docs:
 
 # -- Test stage ---------------------------------------------------------------
 # Using the artifacts of the build stage, execute the models and utils tests
-
-test:utils:
-  <<: *artifacts
-  stage: test
-  tags: [multicore]
-  dependencies: ['build:all']
-  needs: ['build:all']
-  before_script:
-    - *copy_config_to_home
-    - *copy_cmake_reg_to_home
-  script:
-    - cd build
-    - make $MAKE_FLAGS_TEST test_utils
-
 test:models: &test_models
   <<: *artifacts
   stage: test
-  tags: [multicore]
   dependencies: ['build:all']
   needs: ['build:all']
   before_script:
@@ -275,11 +262,9 @@ test:model_defaults:
 # Install gcovr and extract coverage reports
 report:coverage:
   stage: report
-  tags: [singlecore]
   dependencies:
     - test:models
     - test:model_defaults
-    - test:utils
   before_script:
     - source $CI_PROJECT_DIR/build/activate
     - pip3 install gcovr

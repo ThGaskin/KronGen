@@ -114,7 +114,6 @@ void compute_core_numbers(GraphType& g, std::vector<std::vector<size_t>> D) {
 
     size_t N = num_vertices(h);
     size_t k = 0;
-    double deg_diff = 0;
     for (size_t n = 0; n < N; ++n) {
       size_t i = 0;
       while (D[i].empty()) { ++i; }

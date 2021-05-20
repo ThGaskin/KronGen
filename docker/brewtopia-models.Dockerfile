@@ -10,7 +10,7 @@
 # =============================================================================
 
 ARG BASE_IMAGE
-FROM ${BASE_IMAGE}
+FROM "thrgaskin/brewtopia:latest"
 
 # Can update and upgrade dependencies here, if desired
 # RUN brew update && brew upgrade
@@ -24,10 +24,10 @@ ARG UTOPIA_BRANCH="master"
 RUN    git checkout ${UTOPIA_BRANCH} \
     && git pull
 
-ENV CC=gcc-10 CXX=g++-10 CXX_FLAGS="-Og"
+ENV CC=gcc CXX=g++ CXX_FLAGS="-Og"
 RUN    rm -rf build && mkdir -p build \
     && cd build \
-    && cmake -DCMAKE_BUILD_TYPE=Debug -DCMAKE_CXX_FLAGS_DEBUG="-Og" .. \
+    && cmake -DCMAKE_BUILD_TYPE=Debug -DCMAKE_CXX_FLAGS_DEBUG="-Og" -DHDF5_ROOT=$(brew --prefix hdf5) .. \
     && make dummy \
     && ./run-in-utopia-env utopia run dummy
 

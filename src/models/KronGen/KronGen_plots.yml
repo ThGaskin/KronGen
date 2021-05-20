@@ -93,9 +93,7 @@ nw_stats_sweep:
       y: log
 
 diameter:
-  based_on: .dag.generic.facet_grid
-  creator: multiverse
-  kind: line
+  based_on: diameter
   select_and_combine:
     fields:
       p_rewire:

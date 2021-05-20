@@ -1,32 +1,30 @@
 # The model configuration for the KronGen model
 create_graph:
-  model:  WattsStrogatz
-  num_vertices: 10000
-  mean_degree: 10
-  WattsStrogatz:
-    oriented: false
-    p_rewire: !sweep
-      default: 0.3
-      linspace: [0, 1, 11]
-  # Kronecker:
-  #   Graph1:
-  #     num_vertices: !sweep
-  #       default: 4
-  #       values: [5, 6]
-  #     model: complete
-  #
-  #   Graph2:
-  #     num_vertices: 10
-  #     model: complete
+  model: Kronecker
+  Kronecker:
+    Graph1:
+      model: WattsStrogatz
+      num_vertices: 10
+      mean_degree: 4
+      WattsStrogatz:
+        oriented: false
+        p_rewire: 0.2
+    Graph2:
+      model: WattsStrogatz
+      num_vertices: 10
+      mean_degree: 4
+      WattsStrogatz:
+        oriented: false
+        p_rewire: 0.2
 
 # Graph analysis
 NetworkAnalyser:
   graph_analysis:
     enabled: true
     centralities: false
-    clustering_coeff: false
+    clustering_coeff: true
     core_number: false
-    degree: false
-    diameter: true
+    degree: true
+    diameter: false
     distances: false
     reciprocity: false

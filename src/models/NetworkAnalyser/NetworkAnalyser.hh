@@ -254,8 +254,6 @@ class NetworkAnalyser : public Model<NetworkAnalyser<GraphType>, ModelTypes>
           vector closeness(num_vertices);
           size_t deg = 0;
           std::vector<VertexDesc> vertices(num_vertices);
-
-
           std::vector<std::vector<size_t>> D(num_vertices);
 
           if (_betweenness.second) {
@@ -268,10 +266,6 @@ class NetworkAnalyser : public Model<NetworkAnalyser<GraphType>, ModelTypes>
           }
 
           for (const auto v : range<IterateOver::vertices>(_g)) {
-
-              if (v%(num_vertices/100)==0){
-                  this->_log->info("Iterating ... status: {}\%", 100*static_cast<double>(v)/num_vertices);
-              }
 
               deg = boost::degree(v, _g);
               D[deg].push_back(v);

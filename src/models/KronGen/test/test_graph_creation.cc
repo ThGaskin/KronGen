@@ -4,7 +4,6 @@
 #include <boost/mpl/vector.hpp>
 #include <boost/graph/adjacency_list.hpp>
 #include <boost/graph/adjacency_matrix.hpp>
-#include <spdlog/spdlog.h>
 
 #include <utopia/core/testtools.hh>
 #include <utopia/core/types.hh>
@@ -61,23 +60,35 @@ void assert_no_parallel_self_edges(Graph& G) {
 }
 
 // -- Tests -------------------------------------------------------------------
-
 // Undirected graphs
-BOOST_FIXTURE_TEST_CASE(create_KE_graph, Test_Graph)
+BOOST_FIXTURE_TEST_CASE(create_Kron_graph, Test_Graph)
 {
     test_config_callable (
 
       [&](auto test_cfg){
 
         const auto g0 = create_Kronecker_graph<G_vec_u>(test_cfg, *rng);
-        const auto num_vertices = get_as<std::size_t>("assert_num_vertices", test_cfg);
-        const auto mean_degree = get_as<std::size_t>("assert_mean_degree", test_cfg);
-        const auto num_edges = std::round(static_cast<double>(num_vertices/2)*mean_degree);
+        std::size_t num_vertices = 1;
+        std::size_t mean_degree = 1;
+
+        for (const auto& factor_map : test_cfg["Kronecker"]) {
+
+            const auto factor_cfg = factor_map.second;
+
+            num_vertices *= get_as<std::size_t>("num_vertices", factor_cfg);
+            if (get_as<std::string>("model", factor_cfg) == "complete") {
+                mean_degree *= get_as<std::size_t>("num_vertices", factor_cfg);
+            }
+            else {
+                mean_degree *= (get_as<std::size_t>("mean_degree", factor_cfg)+1);
+            }
+        }
+        mean_degree -= 1;
+        const auto num_edges = std::round(static_cast<double>(num_vertices)/2*mean_degree);
         BOOST_TEST(boost::num_vertices(g0) == num_vertices);
         BOOST_TEST(boost::num_edges(g0) == num_edges);
 
         assert_no_parallel_self_edges(g0);
-
 
       },
       cfg
