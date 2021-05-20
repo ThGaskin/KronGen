@@ -23,10 +23,11 @@ using namespace boost;
 template<typename Graph>
 Graph Kronecker_product(Graph& K, Graph& G) {
     Graph P{boost::num_vertices(K)*boost::num_vertices(G)};
+    const std::size_t N = boost::num_vertices(K);
     for(const auto k : range<IterateOver::edges>(K)) {
         for(const auto g : range<IterateOver::edges>(G)) {
-            auto i = source(g, G) * (num_vertices(K)) + source(k, K);
-            auto j = target(g, G) * (num_vertices(K)) + target(k, K);
+            auto i = source(g, G) * N + source(k, K);
+            auto j = target(g, G) * N + target(k, K);
             add_edge(i, j, P);
         }
     }
@@ -47,7 +48,7 @@ Graph create_Kronecker_graph(const Config& cfg,
     // Create empty graph and add one vertex with a self-loop
     Graph g{};
     auto v = add_vertex(g);
-    add_vertex(v, v, g);
+    add_edge(v, v, g);
 
     // Generate Graph
     for (const auto& model_map : cfg["Kronecker"]){

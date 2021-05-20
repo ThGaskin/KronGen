@@ -43,5 +43,14 @@ def network_stats(dm: DataManager, *,
         hlpr.select_axis(0, i)
         data_to_plot = np.asarray(data[plots[i]].data)[0]
         hist = hlpr.ax.hist(data_to_plot, **plot_kwargs)
+        if (plots[i] == 'distance_max'):
+            loc = np.max(data_to_plot)
+            txt = f"max: {np.around(loc, 3)}"
+            hlpr.ax.text(0.89*loc, np.max(hist[0]), txt, color="red")
+        else:
+            loc = np.mean(data_to_plot)
+            txt = f"mean: {np.around(loc, 3)}"
+            hlpr.ax.text(1.01*loc, np.max(hist[0]), txt, color="red")
+        hlpr.ax.axvline(loc, color="red")
         hlpr.ax.set_title(plots[i])
         hlpr.ax.set_yscale('log')

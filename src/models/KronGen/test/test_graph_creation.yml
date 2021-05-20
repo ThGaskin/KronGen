@@ -1,0 +1,58 @@
+---
+Graph1:
+  params:
+    model: Kronecker
+    Kronecker:
+      Graph1:
+        model: WattsStrogatz
+        num_vertices: 10
+        mean_degree: 4
+        WattsStrogatz:
+          oriented: false
+          p_rewire: 0.2
+      Graph2:
+        model: WattsStrogatz
+        num_vertices: 10
+        mean_degree: 4
+        WattsStrogatz:
+          oriented: false
+          p_rewire: 0.2
+    assert_num_vertices: 100
+    assert_mean_degree: 16
+
+Graph2:
+  params:
+    model: Kronecker
+    Kronecker:
+      Graph1:
+        model: complete
+        num_vertices: 14
+      Graph2:
+        model: ErdosRenyi
+        num_vertices: 15
+        mean_degree: 6
+        ErdosRenyi:
+          self_edges: false
+          parallel: false
+    assert_num_vertices: 210
+    assert_mean_degree: 58
+
+Graph3:
+  params:
+    model: Kronecker
+    Kronecker:
+      Graph1:
+        model: complete
+        num_vertices: 14
+      Graph2:
+        model: ErdosRenyi
+        num_vertices: 15
+        mean_degree: 6
+        ErdosRenyi:
+          self_edges: false
+          parallel: false
+      Graph3:
+        model: complete
+        num_vertices: 6
+    assert_num_vertices: 1260
+    assert_mean_degree: 208

@@ -9,10 +9,11 @@
 #include <boost/graph/adjacency_list.hpp>
 #include <boost/graph/adjacency_matrix.hpp>
 #include <boost/graph/clustering_coefficient.hpp>
-#include <boost/graph/dijkstra_shortest_paths.hpp>
 #include <boost/graph/betweenness_centrality.hpp>
 #include <boost/graph/properties.hpp>
 #include <boost/range.hpp>
+
+#include "diameter.hh"
 
 namespace Utopia::Models::NetworkAnalyser
 {
@@ -138,17 +139,10 @@ template<typename GraphType, typename VertexDesc>
 void get_distances(
     GraphType& g,
     VertexDesc v,
-    const size_t num_vertices,
-    std::vector<VertexDesc> p,
-    vector d)
+    const std::size_t num_vertices)
 {
 
-    dijkstra_shortest_paths(g, v,
-      predecessor_map(boost::make_iterator_property_map(
-                          p.begin(), get(boost::vertex_index, g)))
-          .distance_map(boost::make_iterator_property_map(
-              d.begin(), get(boost::vertex_index, g)))
-    );
+    auto d = get_distances(v, g);
 
     const double max = *std::max_element(d.begin(), d.end());
     const double sum = std::accumulate(d.begin(), d.end(), 0.0);

@@ -51,7 +51,7 @@ nw_stats_sweep:
       p_rewire:
         path: cfg/NetworkAnalyser
       param:
-        path: data/KronGen/NetworkAnalyser/graph_data/clustering_coeff
+        path: data/KronGen/NetworkAnalyser/graph_data/distance_max
         transform:
           - operation: .isel
             args: [!dag_prev ]
@@ -59,7 +59,7 @@ nw_stats_sweep:
               time: -1
 
   transform:
-    - operation: .mean
+    - operation: .max
       args: [!dag_tag param]
       kwargs:
         dim: vertex_idx
@@ -81,10 +81,41 @@ nw_stats_sweep:
   y: D
   yerr: dD
   capsize: 2
+  elinewidth: 1
   marker: o
   helpers:
     set_title:
-      title: Average clustering coeff
+      title: Maximum distance
     set_labels:
       x: p_rewire
       y: avg shortest path distance
+    set_scales:
+      y: log
+
+diameter:
+  based_on: .dag.generic.facet_grid
+  creator: multiverse
+  kind: line
+  select_and_combine:
+    fields:
+      p_rewire:
+        path: cfg/NetworkAnalyser
+      diameter:
+        path: data/KronGen/NetworkAnalyser/graph_data/diameter
+        transform:
+          - operation: .isel
+            args: [!dag_prev ]
+            kwargs:
+              time: -1
+
+  transform:
+    - operation: .isel
+      args: [!dag_tag diameter]
+      tag: data
+
+  helpers:
+    set_title:
+      title: Network diameter
+    set_labels:
+      x: p_rewire
+      y: diameter

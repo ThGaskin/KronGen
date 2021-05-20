@@ -20,8 +20,6 @@
 
 #include "graph_metrics.hh"
 
-#include "stopwatch.hh"
-
 namespace Utopia::Models::NetworkAnalyser
 {
 // ++ Type definitions ++++++++++++++++++++++++++++++++++++++++++++++++++++++++
@@ -49,6 +47,9 @@ class NetworkAnalyser : public Model<NetworkAnalyser<GraphType>, ModelTypes>
     using VertexDesc =
         typename boost::graph_traits<GraphType>::vertex_descriptor;
 
+    using vertices_size_type = typename boost::graph_traits<GraphType>::vertices_size_type;
+
+
     /// Data type for an edge descriptor
     using EdgeDesc = typename boost::graph_traits<GraphType>::edge_descriptor;
 
@@ -61,6 +62,9 @@ class NetworkAnalyser : public Model<NetworkAnalyser<GraphType>, ModelTypes>
     /// The graph
     GraphType _g;
 
+    /// The diameter of the graph
+    std::size_t _diam;
+
     // .. Datagroups ..........................................................
 
     // Which features to write
@@ -69,6 +73,7 @@ class NetworkAnalyser : public Model<NetworkAnalyser<GraphType>, ModelTypes>
     const std::pair<std::string, bool> _clustering_coeff;
     const std::pair<std::string, bool> _core_number;
     const std::pair<std::string, bool> _degree;
+    const std::pair<std::string, bool> _diameter;
     const std::pair<std::string, bool> _distance_avg;
     const std::pair<std::string, bool> _distance_harmonic;
     const std::pair<std::string, bool> _distance_max;
@@ -83,6 +88,7 @@ class NetworkAnalyser : public Model<NetworkAnalyser<GraphType>, ModelTypes>
     const std::shared_ptr<DataSet> _dset_clustering_coeff;
     const std::shared_ptr<DataSet> _dset_core_number;
     const std::shared_ptr<DataSet> _dset_degree;
+    const std::shared_ptr<DataSet> _dset_diameter;
     const std::shared_ptr<DataSet> _dset_distance_avg;
     const std::shared_ptr<DataSet> _dset_distance_harmonic;
     const std::shared_ptr<DataSet> _dset_distance_max;
@@ -117,6 +123,7 @@ class NetworkAnalyser : public Model<NetworkAnalyser<GraphType>, ModelTypes>
         _core_number("core_number", get_as<bool>("core_number",
                                                 this->_cfg["graph_analysis"])),
         _degree("degree", get_as<bool>("degree", this->_cfg["graph_analysis"])),
+        _diameter("diameter", get_as<bool>("diameter", this->_cfg["graph_analysis"])),
         _distance_avg("distance_avg", get_as<bool>("distances",
                                                 this->_cfg["graph_analysis"])),
         _distance_harmonic("distance_harmonic", get_as<bool>("distances",
@@ -134,6 +141,7 @@ class NetworkAnalyser : public Model<NetworkAnalyser<GraphType>, ModelTypes>
         _dset_clustering_coeff(this->create_dataset(_clustering_coeff)),
         _dset_core_number(this->create_dataset(_core_number)),
         _dset_degree(this->create_dataset(_degree)),
+        _dset_diameter(this->create_dataset(_diameter)),
         _dset_distance_avg(this->create_dataset(_distance_avg)),
         _dset_distance_harmonic(this->create_dataset(_distance_harmonic)),
         _dset_distance_max(this->create_dataset(_distance_max)),
@@ -141,18 +149,22 @@ class NetworkAnalyser : public Model<NetworkAnalyser<GraphType>, ModelTypes>
 
     {
         if (_betweenness.second) {
+            _dset_betweenness->add_attribute("is_vertex_property", true);
             _dset_betweenness->add_attribute("dim_name__1", "vertex_idx");
             _dset_betweenness->add_attribute("coords_mode__vertex_idx", "trivial");
         }
         if (_closeness.second) {
+            _dset_closeness->add_attribute("is_vertex_property", true);
             _dset_closeness->add_attribute("dim_name__1", "vertex_idx");
             _dset_closeness->add_attribute("coords_mode__vertex_idx", "trivial");
         }
         if (_clustering_coeff.second) {
+            _dset_clustering_coeff->add_attribute("is_vertex_property", true);
             _dset_clustering_coeff->add_attribute("dim_name__1", "vertex_idx");
             _dset_clustering_coeff->add_attribute("coords_mode__vertex_idx", "trivial");
         }
         if (_core_number.second) {
+            _dset_core_number->add_attribute("is_vertex_property", true);
             _dset_core_number->add_attribute("dim_name__1", "vertex_idx");
             _dset_core_number->add_attribute("coords_mode__vertex_idx", "trivial");
         }
@@ -160,6 +172,10 @@ class NetworkAnalyser : public Model<NetworkAnalyser<GraphType>, ModelTypes>
             _dset_degree->add_attribute("dim_name__1", "vertex_idx");
             _dset_degree->add_attribute("coords_mode__vertex_idx", "trivial");
         }
+        // if (_diameter.second) {
+        //     _dset_diameter->add_attribute("is_vertex_property", true);
+        //     _dset_diameter->add_attribute("dim_name__0", "time");
+        // }
         if (_distance_avg.second) {
             _dset_distance_avg->add_attribute("dim_name__1", "vertex_idx");
             _dset_distance_avg->add_attribute("coords_mode__vertex_idx", "trivial");
@@ -189,9 +205,16 @@ class NetworkAnalyser : public Model<NetworkAnalyser<GraphType>, ModelTypes>
         if (get_as<bool>("enabled", this->_cfg["graph_analysis"])
             and selection.second)
         {
-            return this->create_dset(
-                selection.first, _dgrp_g, {boost::num_vertices(_g)}
-            );
+            if (selection.first == "diameter") {
+              return this->create_dset(
+                  selection.first, _dgrp_g, {}
+              );
+            }
+            else {
+                return this->create_dset(
+                    selection.first, _dgrp_g, {boost::num_vertices(_g)}
+                );
+            }
         }
         else {
             return 0;
@@ -204,6 +227,8 @@ class NetworkAnalyser : public Model<NetworkAnalyser<GraphType>, ModelTypes>
     void prolog() {
 
       if (get_as<bool>("enabled", this->_cfg["graph_analysis"])) {
+
+          const auto num_vertices = boost::num_vertices(_g);
 
           // Ensure connectedness
           if (_distance_avg.second) {
@@ -220,25 +245,18 @@ class NetworkAnalyser : public Model<NetworkAnalyser<GraphType>, ModelTypes>
                      ++counter;
                   }
               }
-              this->_log->info("Done; added {} edges", counter);
+              this->_log->info("Done: added {} edges.", counter);
           }
 
           this->_log->info("Starting graph analysis ...");
 
-          auto EdgeWeightMap = boost::get(boost::edge_weight, _g);
-
-          for(const auto e : range<IterateOver::edges>(_g)) {
-              EdgeWeightMap[e] = _g[e].weight;
-          }
-
-          vector betweenness(num_vertices(_g));
-          vector closeness(num_vertices(_g));
+          vector betweenness(num_vertices);
+          vector closeness(num_vertices);
           size_t deg = 0;
-          std::vector<VertexDesc> vertices(num_vertices(_g));
-          std::vector<VertexDesc> p(num_vertices(_g)); // predecessor map
-          vector d(num_vertices(_g)); // distance map
+          std::vector<VertexDesc> vertices(num_vertices);
 
-          std::vector<std::vector<size_t>> D(num_vertices(_g));
+
+          std::vector<std::vector<size_t>> D(num_vertices);
 
           if (_betweenness.second) {
               this->_log->info("Calculating centralities ...");
@@ -250,6 +268,10 @@ class NetworkAnalyser : public Model<NetworkAnalyser<GraphType>, ModelTypes>
           }
 
           for (const auto v : range<IterateOver::vertices>(_g)) {
+
+              if (v%(num_vertices/100)==0){
+                  this->_log->info("Iterating ... status: {}\%", 100*static_cast<double>(v)/num_vertices);
+              }
 
               deg = boost::degree(v, _g);
               D[deg].push_back(v);
@@ -268,17 +290,22 @@ class NetworkAnalyser : public Model<NetworkAnalyser<GraphType>, ModelTypes>
               }
 
               if (_distance_avg.second) {
-                  get_distances(_g, v, num_vertices(_g), p, d);
+                  get_distances(_g, v, num_vertices);
               }
 
           }
 
           if (_core_number.second) {
-              this->_log->info("Computing core numbers");
+              this->_log->info("Computing core numbers ... ");
 
               compute_core_numbers(_g, D);
 
+          }
 
+          if (_diameter.second) {
+              this->_log->info("Computing the diameter ... ");
+              auto starting_point = fourSweep<vertices_size_type>(_g);
+               _diam = iFUB(starting_point.first, starting_point.second, 0, _g);
           }
 
           this->_log->info("Graph analysis complete.");
@@ -319,6 +346,10 @@ class NetworkAnalyser : public Model<NetworkAnalyser<GraphType>, ModelTypes>
           _dset_degree->write(v, v_end, [this](const auto v) {
               return this->_g[v].state.degree;
           });
+      }
+
+      if (_diameter.second){
+          _dset_diameter->write(_diam);
       }
 
       if (_distance_avg.second){
