@@ -26,19 +26,22 @@ Graph Kronecker_product(Graph& K, Graph& G) {
     const std::size_t M = boost::num_vertices(G);
     for(const auto k : range<IterateOver::edges>(K)) {
         for(const auto g : range<IterateOver::edges>(G)) {
-            const auto i = source(k, K) * M + source(g, G);
-            const auto j = target(k, K) * M + target(g, G);
+            const auto s_1 = source(k, K);
+            const auto s_2 = source(g, G);
+            const auto t_1 = target(k, K);
+            const auto t_2 = target(g, G);
+
+            auto i = s_1*M+s_2;
+            auto j = t_1*M+t_2;
             if ((not edge(i, j, P).second) && (not edge(j, i, P).second)){
-              add_edge(i, j, P);
+                add_edge(i, j, P);
             }
 
-            const auto s = source(k, K) * M + target(g, G);
-            const auto t = target(k, K) * M + source(g, G);
-            if ((not edge(s, t, P).second) && (not edge(t, s, P).second)){
-                add_edge(s, t, P);
+            i = s_1*M+t_2;
+            j = t_1*M+s_2;
+            if ((not edge(i, j, P).second) && (not edge(j, i, P).second)){
+                add_edge(i, j, P);
             }
-
-
         }
     }
     return P;

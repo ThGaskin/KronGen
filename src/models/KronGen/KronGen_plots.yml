@@ -18,26 +18,26 @@ graph:
                                       # such that edge lengths are reduced.
       k: 1                            # Tweaking the spring model by adjusting
                                       # the optimal edge length (k) and the
-      iterations: 100                 # maximum number of iterations done.
+      iterations: 500                # maximum number of iterations done.
     nodes:
       node_color:
         from_property: degree     # Map the 'some_state' data to the color
       node_size:
-        from_property: degree         # Map the node degree to the node size
-        scale_to_interval: [10, 200]  # Scale the (degree-)data to the given
+         from_property: degree         # Map the node degree to the node size
+         scale_to_interval: [10, 30]  # Scale the (degree-)data to the given
                                       # interval (the default size is 300).
     edges:
       width: 0.2
         # from_property: weights        # Map the 'weights' data to the edge
         # scale_to_interval: [0.1, 1.2] # width and scale the data accordingly.
+      alpha: 0.2
 
   helpers:
     set_title:
-      title: Final Graph
+      title: Graph topology
 
 nw_stats:
   based_on: network_stats
-  #range: [-1000, 1000]
   bins: 100
   helpers:
     set_scales:
@@ -48,10 +48,10 @@ nw_stats_sweep:
   based_on: multiverse.errorbars
   select_and_combine:
     fields:
-      p_rewire:
+      mu:
         path: cfg/NetworkAnalyser
       param:
-        path: data/KronGen/NetworkAnalyser/graph_data/distance_max
+        path: data/KronGen/NetworkAnalyser/graph_data/clustering_coeff
         transform:
           - operation: .isel
             args: [!dag_prev ]
@@ -59,7 +59,7 @@ nw_stats_sweep:
               time: -1
 
   transform:
-    - operation: .max
+    - operation: .mean
       args: [!dag_tag param]
       kwargs:
         dim: vertex_idx
@@ -77,7 +77,7 @@ nw_stats_sweep:
           dD: !dag_tag stds
       tag: data
 
-  x: p_rewire
+  x: mu
   y: D
   yerr: dD
   capsize: 2
@@ -85,12 +85,12 @@ nw_stats_sweep:
   marker: o
   helpers:
     set_title:
-      title: Maximum distance
+      title: Clustering
     set_labels:
       x: p_rewire
-      y: avg shortest path distance
+      y: avg c
     set_scales:
-      y: log
+      y: linear
 
 diameter:
   based_on: diameter

@@ -4,6 +4,7 @@
 #include <boost/mpl/vector.hpp>
 #include <boost/graph/adjacency_list.hpp>
 #include <boost/graph/adjacency_matrix.hpp>
+#include <boost/graph/clustering_coefficient.hpp>
 
 #include <utopia/core/testtools.hh>
 #include <utopia/core/types.hh>
@@ -27,6 +28,7 @@ struct Edge {};
 
 /// The test graph types
 struct Test_Graph : Infrastructure {
+
   // undirected
   using G_vec_u = boost::adjacency_list<
                       boost::vecS,         // edge container
@@ -70,6 +72,7 @@ BOOST_FIXTURE_TEST_CASE(create_Kron_graph, Test_Graph)
         const auto g0 = create_Kronecker_graph<G_vec_u>(test_cfg, *rng);
         std::size_t num_vertices = 1;
         std::size_t mean_degree = 1;
+        bool is_complete = true;
 
         for (const auto& factor_map : test_cfg["Kronecker"]) {
 
@@ -81,6 +84,7 @@ BOOST_FIXTURE_TEST_CASE(create_Kron_graph, Test_Graph)
             }
             else {
                 mean_degree *= (get_as<std::size_t>("mean_degree", factor_cfg)+1);
+                is_complete = false;
             }
         }
         mean_degree -= 1;
@@ -89,6 +93,13 @@ BOOST_FIXTURE_TEST_CASE(create_Kron_graph, Test_Graph)
         BOOST_TEST(boost::num_edges(g0) == num_edges);
 
         assert_no_parallel_self_edges(g0);
+
+        if (is_complete) {
+            for (auto [v, v_end] = boost::vertices(g0); v!=v_end; ++v) {
+                double c = boost::clustering_coefficient(g0, *v);
+                BOOST_TEST(c == 1);
+            }
+        }
 
       },
       cfg

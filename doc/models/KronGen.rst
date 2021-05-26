@@ -9,7 +9,7 @@ Use your own creativity and structure to convey the important information about 
 
 1. Fill in this documentation file
 2. ``git mv`` this file to the ``doc/models`` directory. Make sure it is named exactly as your model is named.
-3. After the move, make sure the link in the :ref:`Default Model Configuration` section points to your model configuration.
+3. After the move, make sure the link in the `Default Model Configuration <../../src/models/KronGen/KronGen_cfg.yml>`_ section points to your model configuration.
 
 For the reStructuredText syntax, see `here <http://www.sphinx-doc.org/en/master/usage/restructuredtext/basics.html>`_, but there are also some examples below.
 

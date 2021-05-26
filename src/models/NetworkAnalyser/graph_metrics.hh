@@ -133,14 +133,15 @@ void compute_core_numbers(GraphType& g, std::vector<std::vector<size_t>> D) {
 }
 
 
-/// Get various path lengths: average, harmonic average, max of path lengths
+/// Get various indicators of shortest path lengths: average,
+/// harmonic average, max
 template<typename GraphType, typename VertexDesc>
 void get_distances(
     GraphType& g,
     VertexDesc v,
     const std::size_t num_vertices)
 {
-
+    // BFS of all vertex distances
     auto d = get_distances(v, g);
 
     const double max = *std::max_element(d.begin(), d.end());
@@ -163,33 +164,33 @@ void get_distances(
 // Calculate the reciprocity for a single node (= fraction of outgoing
 // links for which the mutual link exists as well).
 // For directed graphs only.
-template<typename NWType, typename VertexDescType>
-double reciprocity(const VertexDescType v, const NWType& nw)
+template<typename Graph, typename VertexDescType>
+double reciprocity(const VertexDescType v, const Graph& g)
 {
     double r = 0.;
-    for (const auto w : range<IterateOver::neighbors>(v, nw)) {
-        if (edge(w, v, nw).second) {
+    for (const auto w : range<IterateOver::neighbors>(v, g)) {
+        if (edge(w, v, g).second) {
             r += 1.;
         }
     }
 
-    return r / double(out_degree(v, nw));
+    return r / out_degree(v, g);
 }
 
 // Calculate the reciprocity of the whole graph (= fraction of mutual links).
 // For directed graphs only.
-template<typename NWType>
-double reciprocity(const NWType& nw)
+template<typename Graph>
+double reciprocity(const Graph& g)
 {
-    double r = 0.;
-    for (const auto e : range<IterateOver::edges>(nw)) {
-        if (edge(target(e, nw), source(e, nw), nw).second)
+    double r = 0;
+    for (const auto e : range<IterateOver::edges>(g)) {
+        if (edge(target(e, g), source(e, g), g).second)
         {
-            r += 1.;
+            r += 1;
         }
     }
 
-    return r / double(num_edges(nw));
+    return r / num_edges(g);
 }
 
 } // namespace Utopia::Models::NetworkAnalyser

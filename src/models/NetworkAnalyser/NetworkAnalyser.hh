@@ -49,21 +49,20 @@ class NetworkAnalyser : public Model<NetworkAnalyser<GraphType>, ModelTypes>
 
     using vertices_size_type = typename boost::graph_traits<GraphType>::vertices_size_type;
 
-
     /// Data type for an edge descriptor
     using EdgeDesc = typename boost::graph_traits<GraphType>::edge_descriptor;
 
   private:
 
     // -- Members -------------------------------------------------------------
-    /// A re-usable uniform real distribution to evaluate probabilities
-    std::uniform_real_distribution<double> _prob_distr;
-
     /// The graph
     GraphType _g;
 
     /// The diameter of the graph
     std::size_t _diam;
+
+    /// Whether graph analysis is enabled
+    const bool _enable_analysis;
 
     // .. Datagroups ..........................................................
 
@@ -108,12 +107,10 @@ class NetworkAnalyser : public Model<NetworkAnalyser<GraphType>, ModelTypes>
         // Initialize first via base model
         Base(name, parent_model, custom_cfg),
 
-        // Initialize the uniform real distribution to range [0., 1.]
-        _prob_distr(0., 1.),
-
         // Now initialize the graph
         _g {graph},
 
+        _enable_analysis(get_as<bool>("enabled", this->_cfg["graph_analysis"])),
         _betweenness("betweenness", get_as<bool>("centralities",
                                                 this->_cfg["graph_analysis"])),
         _closeness("closeness", get_as<bool>("centralities",
@@ -147,47 +144,7 @@ class NetworkAnalyser : public Model<NetworkAnalyser<GraphType>, ModelTypes>
         _dset_distance_max(this->create_dataset(_distance_max)),
         _dset_reciprocity(this->create_dataset(_reciprocity))
 
-    {
-        if (_betweenness.second) {
-            _dset_betweenness->add_attribute("is_vertex_property", true);
-            _dset_betweenness->add_attribute("dim_name__1", "vertex_idx");
-            _dset_betweenness->add_attribute("coords_mode__vertex_idx", "trivial");
-        }
-        if (_closeness.second) {
-            _dset_closeness->add_attribute("is_vertex_property", true);
-            _dset_closeness->add_attribute("dim_name__1", "vertex_idx");
-            _dset_closeness->add_attribute("coords_mode__vertex_idx", "trivial");
-        }
-        if (_clustering_coeff.second) {
-            _dset_clustering_coeff->add_attribute("is_vertex_property", true);
-            _dset_clustering_coeff->add_attribute("dim_name__1", "vertex_idx");
-            _dset_clustering_coeff->add_attribute("coords_mode__vertex_idx", "trivial");
-        }
-        if (_core_number.second) {
-            _dset_core_number->add_attribute("is_vertex_property", true);
-            _dset_core_number->add_attribute("dim_name__1", "vertex_idx");
-            _dset_core_number->add_attribute("coords_mode__vertex_idx", "trivial");
-        }
-        if (_degree.second) {
-            _dset_degree->add_attribute("dim_name__1", "vertex_idx");
-            _dset_degree->add_attribute("coords_mode__vertex_idx", "trivial");
-        }
-        // if (_diameter.second) {
-        //     _dset_diameter->add_attribute("is_vertex_property", true);
-        //     _dset_diameter->add_attribute("dim_name__0", "time");
-        // }
-        if (_distance_avg.second) {
-            _dset_distance_avg->add_attribute("dim_name__1", "vertex_idx");
-            _dset_distance_avg->add_attribute("coords_mode__vertex_idx", "trivial");
-            _dset_distance_harmonic->add_attribute("dim_name__1", "vertex_idx");
-            _dset_distance_harmonic->add_attribute("coords_mode__vertex_idx", "trivial");
-            _dset_distance_max->add_attribute("dim_name__1", "vertex_idx");
-            _dset_distance_max->add_attribute("coords_mode__vertex_idx", "trivial");
-        }
-        if (_reciprocity.second) {
-            _dset_reciprocity->add_attribute("dim_name__1", "vertex_idx");
-            _dset_reciprocity->add_attribute("coords_mode__vertex_idx", "trivial");
-        }
+  {
 
         this->_log->info("Saving the graph ...");
 
@@ -198,170 +155,174 @@ class NetworkAnalyser : public Model<NetworkAnalyser<GraphType>, ModelTypes>
 
   private:
 
-    // Only initialize datasets for entries selected in the cfg
-    std::shared_ptr<DataSet> create_dataset(
-        const std::pair<std::string, bool>& selection)
-    {
-        if (get_as<bool>("enabled", this->_cfg["graph_analysis"])
-            and selection.second)
-        {
-            if (selection.first == "diameter") {
-              return this->create_dset(
-                  selection.first, _dgrp_g, {}
+  // Only initialize datasets for entries selected in the cfg
+  std::shared_ptr<DataSet> create_dataset(
+      const std::pair<std::string, bool>& selection)
+  {
+      if (this->_enable_analysis && selection.second)
+      {
+          std::shared_ptr<DataSet> dset{};
+          if (selection.first == "diameter") {
+            dset = this->create_dset(selection.first, _dgrp_g, {});
+            dset->add_attribute("dim_name__0", "time");
+          }
+          else {
+              dset = this->create_dset(
+                  selection.first, _dgrp_g, {boost::num_vertices(_g)}
               );
-            }
-            else {
-                return this->create_dset(
-                    selection.first, _dgrp_g, {boost::num_vertices(_g)}
-                );
-            }
-        }
-        else {
-            return 0;
-        }
-    }
+              dset->add_attribute("dim_name__0", "time");
+              dset->add_attribute("dim_name__1", "vertex_idx");
+              dset->add_attribute("coords_mode__vertex_idx", "trivial");
+          }
+          return dset;
+      }
+      else {
+          return 0;
+      }
+  }
 
 
   public:
 
-    void prolog() {
+  void prolog() {
 
-      if (get_as<bool>("enabled", this->_cfg["graph_analysis"])) {
+    if (this->_enable_analysis) {
 
-          const auto num_vertices = boost::num_vertices(_g);
+        const auto num_vertices = boost::num_vertices(_g);
 
-          // Ensure connectedness
-          if (_distance_avg.second) {
+        // Ensure connectedness
+        if (_distance_avg.second or _diameter.second) {
 
-              this->_log->info("Checking for connectedness ... ");
-              size_t counter = 0;
-              for (const auto v : range<IterateOver::vertices>(_g)) {
-                  if (boost::degree(v, _g) == 0) {
-                     auto w = random_vertex(_g, *this->_rng);
-                     while (w == v) {
-                       w = random_vertex(_g, *this->_rng);
-                     }
-                     boost::add_edge(v, w, _g);
-                     ++counter;
-                  }
-              }
-              this->_log->info("Done: added {} edges.", counter);
-          }
+            this->_log->info("Checking for connectedness ... ");
+            size_t counter = 0;
+            for (const auto v : range<IterateOver::vertices>(_g)) {
+                if (boost::degree(v, _g) == 0) {
+                   auto w = random_vertex(_g, *this->_rng);
+                   while (w == v) {
+                     w = random_vertex(_g, *this->_rng);
+                   }
+                   boost::add_edge(v, w, _g);
+                   ++counter;
+                }
+            }
+            this->_log->info("Done: added {} edges.", counter);
+        }
 
-          this->_log->info("Starting graph analysis ...");
+        this->_log->info("Starting graph analysis ...");
 
-          vector betweenness(num_vertices);
-          vector closeness(num_vertices);
-          size_t deg = 0;
-          std::vector<VertexDesc> vertices(num_vertices);
-          std::vector<std::vector<size_t>> D(num_vertices);
+        vector betweenness(num_vertices);
+        vector closeness(num_vertices);
+        size_t deg = 0;
+        std::vector<VertexDesc> vertices(num_vertices);
+        std::vector<std::vector<size_t>> D(num_vertices);
 
-          if (_betweenness.second) {
-              this->_log->info("Calculating centralities ...");
-              std::pair<vector, vector> centralities =
-                  get_centralities(_g);
-              betweenness = centralities.first;
-              closeness = centralities.second;
-              this->_log->info("Done.");
-          }
+        if (_betweenness.second) {
+            this->_log->info("Calculating centralities ...");
+            std::pair<vector, vector> centralities =
+                get_centralities(_g);
+            betweenness = centralities.first;
+            closeness = centralities.second;
+            this->_log->info("Done.");
+        }
 
-          for (const auto v : range<IterateOver::vertices>(_g)) {
+        for (const auto v : range<IterateOver::vertices>(_g)) {
 
-              deg = boost::degree(v, _g);
-              D[deg].push_back(v);
+            deg = boost::degree(v, _g);
+            D[deg].push_back(v);
 
-              if (_betweenness.second) {
-                _g[v].state.betweenness = betweenness[v];
-                _g[v].state.closeness = closeness[v];
-              }
+            if (_betweenness.second) {
+              _g[v].state.betweenness = betweenness[v];
+              _g[v].state.closeness = closeness[v];
+            }
 
-              if (_clustering_coeff.second) {
-                _g[v].state.clustering_coeff = clustering_coefficient(_g, v);
-              }
+            if (_clustering_coeff.second) {
+              _g[v].state.clustering_coeff = clustering_coefficient(_g, v);
+            }
 
-              if (_degree.second) {
-                _g[v].state.degree = deg;
-              }
+            if (_degree.second) {
+              _g[v].state.degree = deg;
+            }
 
-              if (_distance_avg.second) {
-                  get_distances(_g, v, num_vertices);
-              }
-
-          }
-
-          if (_core_number.second) {
-              this->_log->info("Computing core numbers ... ");
-
-              compute_core_numbers(_g, D);
-
-          }
-
-          if (_diameter.second) {
-              this->_log->info("Computing the diameter ... ");
-              auto starting_point = fourSweep<vertices_size_type>(_g);
-               _diam = iFUB(starting_point.first, starting_point.second, 0, _g);
-          }
-
-          this->_log->info("Graph analysis complete.");
+            if (_distance_avg.second) {
+                get_distances(_g, v, num_vertices);
+            }
 
         }
-    }
-    void perform_step() {}
-    void monitor() {}
-    void write_data() {}
-    void epilog() {
 
-      this->_log->info ("Writing data ... ");
+        if (_core_number.second) {
+            this->_log->info("Computing core numbers ... ");
 
-      auto [v, v_end] = boost::vertices(_g);
+            compute_core_numbers(_g, D);
 
-      if (_betweenness.second) {
-          _dset_betweenness->write(v, v_end, [this](const auto v) {
-              return this->_g[v].state.betweenness;
-          });
-          _dset_closeness->write(v, v_end, [this](const auto v) {
-              return this->_g[v].state.closeness;
-          });
+        }
+
+        if (_diameter.second) {
+            this->_log->info("Computing the diameter ... ");
+            auto starting_point = fourSweep<vertices_size_type>(_g);
+             _diam = iFUB(starting_point.first, starting_point.second, 0, _g);
+        }
+
+        this->_log->info("Graph analysis complete.");
+
       }
+  }
+  void perform_step() {}
+  void monitor() {}
+  void write_data() {}
+  void epilog() {
 
-      if (_clustering_coeff.second){
-          _dset_clustering_coeff->write(v, v_end, [this](const auto v) {
-              return this->_g[v].state.clustering_coeff;
-          });
+      if (this->_enable_analysis) {
+
+          this->_log->info ("Writing data ... ");
+
+          auto [v, v_end] = boost::vertices(_g);
+
+          if (_betweenness.second) {
+              _dset_betweenness->write(v, v_end, [this](const auto v) {
+                  return this->_g[v].state.betweenness;
+              });
+              _dset_closeness->write(v, v_end, [this](const auto v) {
+                  return this->_g[v].state.closeness;
+              });
+          }
+
+          if (_clustering_coeff.second){
+              _dset_clustering_coeff->write(v, v_end, [this](const auto v) {
+                  return this->_g[v].state.clustering_coeff;
+              });
+          }
+
+          if (_core_number.second){
+              _dset_core_number->write(v, v_end, [this](const auto v) {
+                  return this->_g[v].state.core_number;
+              });
+          }
+
+          if (_degree.second){
+              _dset_degree->write(v, v_end, [this](const auto v) {
+                  return this->_g[v].state.degree;
+              });
+          }
+
+          if (_diameter.second){
+              _dset_diameter->write(_diam);
+          }
+
+          if (_distance_avg.second){
+              _dset_distance_avg->write(v, v_end, [this](const auto v) {
+                  return this->_g[v].state.distance_avg;
+              });
+              _dset_distance_harmonic->write(v, v_end, [this](const auto v) {
+                  return this->_g[v].state.distance_harmonic;
+              });
+              _dset_distance_max->write(v, v_end, [this](const auto v) {
+                  return this->_g[v].state.distance_max;
+              });
+          }
+
+          this->_log->info ("Data written.");
       }
-
-      if (_core_number.second){
-          _dset_core_number->write(v, v_end, [this](const auto v) {
-              return this->_g[v].state.core_number;
-          });
-      }
-
-      if (_degree.second){
-          _dset_degree->write(v, v_end, [this](const auto v) {
-              return this->_g[v].state.degree;
-          });
-      }
-
-      if (_diameter.second){
-          _dset_diameter->write(_diam);
-      }
-
-      if (_distance_avg.second){
-          _dset_distance_avg->write(v, v_end, [this](const auto v) {
-              return this->_g[v].state.distance_avg;
-          });
-          _dset_distance_harmonic->write(v, v_end, [this](const auto v) {
-              return this->_g[v].state.distance_harmonic;
-          });
-          _dset_distance_max->write(v, v_end, [this](const auto v) {
-              return this->_g[v].state.distance_max;
-          });
-      }
-
-      this->_log->info ("Data written.");
-
-    }
-
+  }
 };
 
 }  // namespace Utopia::Models::NetworkAnalyser

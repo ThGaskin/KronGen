@@ -19,14 +19,9 @@ mtc = ModelTest("KronGen", test_file=__file__)
 def test_that_it_runs():
     """Tests that the model runs through with the default settings"""
     # Create a Multiverse using the default model configuration
-    mv = mtc.create_mv()
+    mv, _ = mtc.create_run_load(from_cfg='output.yml', perform_sweep=True)
 
-    # Run a single simulation
-    mv.run_single()
-
-    # Load data using the DataManager and the default load configuration
-    mv.dm.load_from_cfg(print_tree=True)
-    # The `print_tree` flag creates output of which data was loaded
+    assert len(mv.dm)
 
 
 # def test_run_and_eval_cfgs():
