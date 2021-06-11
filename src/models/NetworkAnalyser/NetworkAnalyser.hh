@@ -58,6 +58,9 @@ class NetworkAnalyser : public Model<NetworkAnalyser<GraphType>, ModelTypes>
     /// The graph
     GraphType _g;
 
+    /// The global clustering coefficient
+    double _c_global;
+
     /// The diameter of the graph
     std::size_t _diam;
 
@@ -70,6 +73,7 @@ class NetworkAnalyser : public Model<NetworkAnalyser<GraphType>, ModelTypes>
     const std::pair<std::string, bool> _betweenness;
     const std::pair<std::string, bool> _closeness;
     const std::pair<std::string, bool> _clustering_coeff;
+    const std::pair<std::string, bool> _clustering_global;
     const std::pair<std::string, bool> _core_number;
     const std::pair<std::string, bool> _degree;
     const std::pair<std::string, bool> _diameter;
@@ -85,6 +89,7 @@ class NetworkAnalyser : public Model<NetworkAnalyser<GraphType>, ModelTypes>
     const std::shared_ptr<DataSet> _dset_betweenness;
     const std::shared_ptr<DataSet> _dset_closeness;
     const std::shared_ptr<DataSet> _dset_clustering_coeff;
+    const std::shared_ptr<DataSet> _dset_clustering_global;
     const std::shared_ptr<DataSet> _dset_core_number;
     const std::shared_ptr<DataSet> _dset_degree;
     const std::shared_ptr<DataSet> _dset_diameter;
@@ -117,6 +122,8 @@ class NetworkAnalyser : public Model<NetworkAnalyser<GraphType>, ModelTypes>
                                                 this->_cfg["graph_analysis"])),
         _clustering_coeff("clustering_coeff", get_as<bool>("clustering_coeff",
                                                 this->_cfg["graph_analysis"])),
+        _clustering_global("clustering_global", get_as<bool>("clustering_global",
+                                                this->_cfg["graph_analysis"])),
         _core_number("core_number", get_as<bool>("core_number",
                                                 this->_cfg["graph_analysis"])),
         _degree("degree", get_as<bool>("degree", this->_cfg["graph_analysis"])),
@@ -136,6 +143,7 @@ class NetworkAnalyser : public Model<NetworkAnalyser<GraphType>, ModelTypes>
         _dset_betweenness(this->create_dataset(_betweenness)),
         _dset_closeness(this->create_dataset(_closeness)),
         _dset_clustering_coeff(this->create_dataset(_clustering_coeff)),
+        _dset_clustering_global(this->create_dataset(_clustering_global)),
         _dset_core_number(this->create_dataset(_core_number)),
         _dset_degree(this->create_dataset(_degree)),
         _dset_diameter(this->create_dataset(_diameter)),
@@ -162,9 +170,11 @@ class NetworkAnalyser : public Model<NetworkAnalyser<GraphType>, ModelTypes>
       if (this->_enable_analysis && selection.second)
       {
           std::shared_ptr<DataSet> dset{};
-          if (selection.first == "diameter") {
-            dset = this->create_dset(selection.first, _dgrp_g, {});
-            dset->add_attribute("dim_name__0", "time");
+          if (selection.first == "diameter"
+           or selection.first == "clustering_global")
+          {
+              dset = this->create_dset(selection.first, _dgrp_g, {});
+              dset->add_attribute("dim_name__0", "time");
           }
           else {
               dset = this->create_dset(
@@ -255,6 +265,10 @@ class NetworkAnalyser : public Model<NetworkAnalyser<GraphType>, ModelTypes>
             compute_core_numbers(_g, D);
 
         }
+        if (_clustering_global.second) {
+            this->_log->info("Computing the global clustering coefficient ... ");
+            _c_global = global_clustering_coeff(_g);
+        }
 
         if (_diameter.second) {
             this->_log->info("Computing the diameter ... ");
@@ -290,6 +304,10 @@ class NetworkAnalyser : public Model<NetworkAnalyser<GraphType>, ModelTypes>
               _dset_clustering_coeff->write(v, v_end, [this](const auto v) {
                   return this->_g[v].state.clustering_coeff;
               });
+          }
+
+          if (_clustering_global.second){
+              _dset_clustering_global->write(_c_global);
           }
 
           if (_core_number.second){

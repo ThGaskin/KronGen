@@ -46,6 +46,20 @@ const std::pair<vector, vector> get_centralities(GraphType& g)
     return std::make_pair(centrality, closeness);
 }
 
+/// Calculate the global clustering coefficient
+template <typename GraphType>
+double global_clustering_coeff(GraphType& g)
+{
+    std::size_t num_triangles = 0;
+    std::size_t degree_sum = 0;
+    for (const auto v : range<IterateOver::vertices>(g)) {
+        // Undirected: factor of 2
+        num_triangles += 2*boost::num_triangles_on_vertex(g, v);
+        degree_sum += boost::degree(v, g)*(degree(v, g)-1);
+    }
+
+    return static_cast<double>(num_triangles)/degree_sum;
+}
 
 // Identify groups of agents that are connected via out-edges.
 // Note that completely isolated vertices are also identified
@@ -191,6 +205,25 @@ double reciprocity(const Graph& g)
     }
 
     return r / num_edges(g);
+}
+
+/// Calculate the mean degree and the degree variance of a graph
+// To do: test this
+template <typename GraphType>
+std::pair<double, double> degree_statistics (GraphType& g) {
+    std::size_t e = 0;
+    std::size_t ee = 0;
+    for (const auto v : range<IterateOver::vertices>(g)) {
+        const auto d = degree(v, g);
+        e += d;
+        ee += pow(d, 2);
+    }
+    std::size_t N = num_vertices(g);
+
+    double k = static_cast<double>(e)/N;
+    double var = (static_cast<double>(ee)/N - pow(static_cast<double>(e)/N, 2));
+
+    return {k, var};
 }
 
 } // namespace Utopia::Models::NetworkAnalyser

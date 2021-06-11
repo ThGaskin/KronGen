@@ -1,4 +1,4 @@
-#define BOOST_TEST_MODULE graph KronGen test
+#define BOOST_TEST_MODULE Kronecker graph creation test
 
 #include <boost/test/included/unit_test.hpp>
 #include <boost/mpl/vector.hpp>
@@ -104,4 +104,28 @@ BOOST_FIXTURE_TEST_CASE(create_Kron_graph, Test_Graph)
       },
       cfg
     );
+}
+
+BOOST_FIXTURE_TEST_CASE(create_zero_clustering_graph, Test_Graph)
+{
+    const std::vector<std::size_t> n_vertices{4, 6, 8, 10, 12, 14, 16};
+
+    for (const auto& N : n_vertices) {
+        for (std::size_t k = 2; k < (N/2+1); ++k ){
+            const auto g = create_zero_c_graph<G_vec_u>(N, k);
+            double deg_sum = 0;
+            BOOST_TEST(boost::num_vertices(g) == N);
+            for (auto [v, v_end] = boost::vertices(g); v!=v_end; ++v) {
+                double c = boost::clustering_coefficient(g, *v);
+                auto deg = degree(*v, g);
+                BOOST_TEST(c == 0);
+                deg_sum += deg;
+                BOOST_TEST(deg == k);
+            }
+            BOOST_TEST(deg_sum/N == k);
+            BOOST_TEST(Utopia::Models::NetworkAnalyser::global_clustering_coeff(g) == 0);
+
+            assert_no_parallel_self_edges(g);
+        }
+    }
 }

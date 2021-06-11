@@ -172,7 +172,7 @@ private:
 
       this->_log->info("Creating the graph ...");
 
-      GraphType g = GraphCreation::create_Kronecker_graph<GraphType>(
+      GraphType g = GraphCreation::create_graph<GraphType>(
             this->_cfg["create_graph"],
             *this->_rng
       );

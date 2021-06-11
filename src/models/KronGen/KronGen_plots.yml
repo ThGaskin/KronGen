@@ -8,7 +8,7 @@ graph:
   graph_creation:
     at_time_idx: -1                           # Select the last timestep
     node_props: ['degree']  # Select node and edge
-    # edge_props: ['weights']                   # properties from the GraphGroup
+    #edge_props: ['weights']                   # properties from the GraphGroup
 
   # Configure the graph layout
   graph_drawing:
@@ -16,20 +16,20 @@ graph:
     positions:
       model: spring                   # The spring model positions the nodes
                                       # such that edge lengths are reduced.
-      k: 1                            # Tweaking the spring model by adjusting
+      k: 10                          # Tweaking the spring model by adjusting
                                       # the optimal edge length (k) and the
-      iterations: 500                # maximum number of iterations done.
+      iterations: 5               # maximum number of iterations done.
     nodes:
       node_color:
-        from_property: degree     # Map the 'some_state' data to the color
+       from_property: degree     # Map the 'some_state' data to the color
       node_size:
-         from_property: degree         # Map the node degree to the node size
-         scale_to_interval: [10, 30]  # Scale the (degree-)data to the given
-                                      # interval (the default size is 300).
+        from_property: degree         # Map the node degree to the node size
+        scale_to_interval: [10, 30]  # Scale the (degree-)data to the given
+                                    #  interval (the default size is 300).
     edges:
       width: 0.2
-        # from_property: weights        # Map the 'weights' data to the edge
-        # scale_to_interval: [0.1, 1.2] # width and scale the data accordingly.
+        #from_property: weights        # Map the 'weights' data to the edge
+        #scale_to_interval: [0.1, 1.2] # width and scale the data accordingly.
       alpha: 0.2
 
   helpers:
@@ -91,6 +91,60 @@ nw_stats_sweep:
       y: avg c
     set_scales:
       y: linear
+
+clustering_glob:
+  based_on: diameter
+  select_and_combine:
+    fields:
+      clustering_coeff:
+        path: cfg/NetworkAnalyser
+      c:
+        path: data/KronGen/NetworkAnalyser/graph_data/clustering_global
+        transform:
+          - operation: .isel
+            args: [!dag_prev ]
+            kwargs:
+              time: -1
+
+  transform:
+    - operation: .isel
+      args: [!dag_tag c]
+      tag: data
+
+  helpers:
+    set_title:
+      title: Network clustering coefficient (global)
+    set_labels:
+      x: clustering coefficient (in)
+      y: clustering coefficient (out)
+    set_limits:
+      x: [0, 1]
+      y: [0, 1]
+
+num_vertices:
+  based_on: diameter
+  select_and_combine:
+    fields:
+      clustering_coeff:
+        cfg/NetworkAnalyser
+      N:
+        path: data/KronGen/NetworkAnalyser/graph_data/_vertices
+        transform:
+          - operation: .isel
+            args: [!dag_prev ]
+            kwargs:
+              vertex_idx: -1
+
+  transform:
+    - operation: .isel
+      args: [!dag_tag N]
+      tag: data
+  helpers:
+    set_title:
+      title: Number of vertices
+    set_labels:
+      x: clustering coefficient (in)
+      y: number of vertices
 
 diameter:
   based_on: diameter
