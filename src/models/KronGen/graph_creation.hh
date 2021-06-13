@@ -57,40 +57,7 @@ Graph create_zero_c_graph(const std::size_t N, const std::size_t k)
     return g;
 }
 
-// Kronecker product of graphs
-// Graphs must have a self-loop on every node
-// Todo: Test me
-template<typename Graph>
-Graph Kronecker_product(Graph& K, Graph& G) {
-    using namespace Utopia;
-
-    const std::size_t M = num_vertices(G);
-    Graph P{num_vertices(K)*M};
-
-    for(const auto k : range<IterateOver::edges>(K)) {
-        for(const auto g : range<IterateOver::edges>(G)) {
-            const auto s_1 = source(k, K);
-            const auto s_2 = source(g, G);
-            const auto t_1 = target(k, K);
-            const auto t_2 = target(g, G);
-
-            auto i = s_1*M+s_2;
-            auto j = t_1*M+t_2;
-            if ((not edge(i, j, P).second) && (not edge(j, i, P).second)){
-                add_edge(i, j, P);
-            }
-
-            i = s_1*M+t_2;
-            j = t_1*M+s_2;
-            if ((not edge(i, j, P).second) && (not edge(j, i, P).second)){
-                add_edge(i, j, P);
-            }
-        }
-    }
-
-    return P;
-}
-
+/// Returns the Kronecker product of a list of graphs
 template<typename Graph, typename RNGType>
 Graph create_Kronecker_graph(const Config& cfg, RNGType& rng)
 {
@@ -107,7 +74,7 @@ Graph create_Kronecker_graph(const Config& cfg, RNGType& rng)
         for (const auto v : range<IterateOver::vertices>(h)) {
             add_edge(v, v, h);
         }
-        g = Kronecker_product(g, h);
+        g = Utils::Kronecker_product(g, h);
     }
 
     // Remove self-loops
@@ -119,6 +86,7 @@ Graph create_Kronecker_graph(const Config& cfg, RNGType& rng)
     return g;
 }
 
+// Creates a graph from a list of topological properties
 template<typename Graph, typename RNGType>
 Graph create_KronGen_graph(const Config& cfg, RNGType& rng)
 {
@@ -134,7 +102,7 @@ Graph create_KronGen_graph(const Config& cfg, RNGType& rng)
     std::size_t N;
     std::size_t m;
 
-    // Fixme: do this properly
+    // Fixme: do this properly..................................................
     // For low clustering: low k/N, but with sufficiently large m
     if (c < 0.2) {
         N = std::round(get_as<std::size_t>("num_vertices", cfg)*0.8);
@@ -151,6 +119,7 @@ Graph create_KronGen_graph(const Config& cfg, RNGType& rng)
             m = std::round(N-1);
         }
     }
+    // .........................................................................
 
     Graph r = Utopia::Graph::create_ErdosRenyi_graph<Graph>(N, m, false, false, rng);
     double c_r = Utopia::Models::NetworkAnalyser::global_clustering_coeff(r);
@@ -161,24 +130,16 @@ Graph create_KronGen_graph(const Config& cfg, RNGType& rng)
     for (const auto v : range<IterateOver::vertices>(r)) {
         add_edge(v, v, r);
     }
-    if (c_r <= c) {
-        const std::size_t n_2 = Utils::get_mean_deg_c(false, c_r, c, mean_deg, var);
-        Graph k = Utopia::Graph::create_complete_graph<Graph>(n_2+1);
-        for (const auto v : range<IterateOver::vertices>(k)) {
-            add_edge(v, v, k);
-        }
-        r = Kronecker_product(k, r);
-        c_r = Utils::Kronecker_clustering(c_r, 1, mean_deg, n_2, var, 0);
+
+    const std::size_t n_2 = std::round(Utils::get_mean_deg_c(c_r, c, mean_deg, var));
+    Graph k = (c_r <= c) ? Utopia::Graph::create_complete_graph<Graph>(n_2+1) : create_zero_c_graph<Graph>(2*n_2, n_2);
+    for (const auto v : range<IterateOver::vertices>(k)) {
+        add_edge(v, v, k);
     }
-    else {
-        const std::size_t n_2 = Utils::get_mean_deg_c(true, c_r, c, mean_deg, var);
-        Graph k = create_zero_c_graph<Graph>(2*n_2, n_2);
-        for (const auto v : range<IterateOver::vertices>(k)) {
-            add_edge(v, v, k);
-        }
-        r = Kronecker_product(k, r);
-        c_r = Utils::Kronecker_clustering(c_r, 0, mean_deg, n_2, var, 0);
-    }
+    r = Utils::Kronecker_product(k, r);
+    const double c_K = (c_r <= c) ? 1 : 0;
+    c_r = Utils::Kronecker_clustering(c_r, c_K, mean_deg, n_2, var, 0) ;
+
     for (const auto v : range<IterateOver::vertices>(r)) {
         remove_edge(v, v, r);
     }

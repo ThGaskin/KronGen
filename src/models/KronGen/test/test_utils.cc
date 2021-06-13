@@ -17,6 +17,7 @@
 using namespace Utopia::TestTools;
 using namespace Utopia::Models::KronGen::GraphCreation;
 using namespace Utopia::Models::KronGen::Utils;
+using namespace Utopia::Models::NetworkAnalyser;
 using namespace Utopia;
 
 // -- Types -------------------------------------------------------------------
@@ -40,8 +41,10 @@ struct Test_Graph : Infrastructure {
                       Edge>;               // edge struct
 };
 
-BOOST_FIXTURE_TEST_CASE(test_clustering_coeff, Test_Graph)
+BOOST_FIXTURE_TEST_CASE(test_Kronecker_properties, Test_Graph)
 {
+    using vertices_size_type = typename boost::graph_traits<G_vec_u>::vertices_size_type;
+
     test_config_callable (
 
       [&](auto test_cfg){
@@ -50,16 +53,27 @@ BOOST_FIXTURE_TEST_CASE(test_clustering_coeff, Test_Graph)
           auto v0 = boost::add_vertex(g0);
           boost::add_edge(v0, v0, g0);
 
-          std::vector<double>c;
+          std::vector<std::size_t>N;
           std::vector<double>k;
-          std::vector<double>v;
+          std::vector<double>var;
+          std::vector<double>c;
+          std::vector<double>diam;
 
+          BOOST_TEST_CHECKPOINT("Generating Kronecker graph ... ");
           for (const auto& factor_map : test_cfg["Kronecker"]) {
               auto g = create_graph<G_vec_u>(factor_map.second, *rng);
-              const auto deg_stats = Utopia::Models::NetworkAnalyser::degree_statistics(g);
-              c.push_back(Utopia::Models::NetworkAnalyser::global_clustering_coeff(g));
+
+              const auto deg_stats = degree_statistics(g);
+              const auto clustering = global_clustering_coeff(g);
+              const auto starting_point = fourSweep<vertices_size_type>(g);
+              const double d = iFUB(starting_point.first, starting_point.second, 0, g);
+
+              N.push_back(boost::num_vertices(g));
               k.push_back(static_cast<double>(deg_stats.first));
-              v.push_back(static_cast<double>(deg_stats.second));
+              var.push_back(static_cast<double>(deg_stats.second));
+              c.push_back(clustering);
+              diam.push_back(d);
+
               for (const auto w : Utopia::range<IterateOver::vertices>(g)) {
                   add_edge(w, w, g);
               }
@@ -69,10 +83,47 @@ BOOST_FIXTURE_TEST_CASE(test_clustering_coeff, Test_Graph)
               remove_edge(w, w, g0);
           }
 
-          const auto c_r = Kronecker_clustering(c[0], c[1], k[0], k[1], v[0], v[1]);
-          const auto c0 = Utopia::Models::NetworkAnalyser::global_clustering_coeff(g0);
+          BOOST_TEST_CHECKPOINT("Kronecker graph generated");
 
-          BOOST_TEST(c_r == c0, boost::test_tools::tolerance(1.e-12));
+          const auto deg_stats = degree_statistics(g0);
+
+          // Check number of vertices
+          const std::size_t n_vertices = num_vertices(g0);
+          BOOST_TEST_CHECKPOINT("Testing vertex count");
+          BOOST_TEST(n_vertices == Kronecker_num_vertices(N[0], N[1]));
+
+          // Check mean degree
+          const double mean_degree = deg_stats.first;
+          BOOST_TEST_CHECKPOINT("Testing mean degree");
+          BOOST_TEST(mean_degree == Kronecker_mean_degree(k[0], k[1]),
+                     boost::test_tools::tolerance(1.e-12));
+
+          // Check degree distribution variance
+          const double variance = deg_stats.second;
+          BOOST_TEST_CHECKPOINT("Testing degree distribution variance");
+          BOOST_TEST(variance == Kronecker_degree_variance(k[0], k[1], var[0], var[1]),
+                     boost::test_tools::tolerance(1.e-12));
+
+          // Check clustering coefficient
+          const auto c_t = Kronecker_clustering(c[0], c[1], k[0], k[1], var[0], var[1]);
+          const auto c0 = global_clustering_coeff(g0);
+          BOOST_TEST_CHECKPOINT("Testing clustering coefficient");
+          BOOST_TEST(c_t == c0, boost::test_tools::tolerance(1.e-12));
+
+          // Check inversion function of clustering
+          const auto g = get_mean_deg_c(c[0], c_t, k[0], var[0]);
+          const auto c_G = c_t >= c[0] ? 1 : 0;
+          BOOST_TEST_CHECKPOINT("Testing clustering inversion function");
+          BOOST_TEST(Kronecker_clustering(c[0], c_G, k[0], g, var[0], 0) == c_t,
+                     boost::test_tools::tolerance(1.e-12));
+
+          // Check diameter
+          const auto starting_point = fourSweep<vertices_size_type>(g0);
+          const auto d = iFUB(starting_point.first, starting_point.second, 0, g0);
+          BOOST_TEST_CHECKPOINT("Testing diameter");
+          BOOST_TEST(d == std::max(diam[0], diam[1]));
+
+
 
       },
       cfg
