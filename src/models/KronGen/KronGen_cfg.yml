@@ -1,28 +1,11 @@
 ---
 # The model configuration for the KronGen model
 create_graph:
-  # model: Kronecker
-  # Kronecker:
-  #   Graph1:
-  #     model: KlemmEguiluz
-  #     num_vertices: 50
-  #     mean_degree: 6
-  #     KlemmEguiluz:
-  #       mu: 0.6
-  #   Graph2:
-  #     model: KlemmEguiluz
-  #     num_vertices: 50
-  #     mean_degree: 6
-  #     KlemmEguiluz:
-  #       mu: 0.5
   model: KronGen
   num_vertices: 52
   mean_degree: 6
   KronGen:
-    clustering_coeff: !sweep
-      default: 0.772
-      values: [0.05, 0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 0.9, 0.95]
-      #linspace: [0.1, 0.9, 9]
+    clustering_coeff: 0.72
 
 
 # Graph analysis
