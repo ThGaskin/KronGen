@@ -1,12 +1,29 @@
 ---
 # The model configuration for the KronGen model
 create_graph:
-  model: KronGen
-  num_vertices: 52
-  mean_degree: 6
-  KronGen:
-    clustering_coeff: 0.72
+  model: Kronecker
+  num_vertices: 100
+  Kronecker:
+    Graph1:
+      model: zero_c
+      num_vertices: 250
+      mean_degree: 2
+      regular:
+        oriented: false
+    Graph2:
+      model: ErdosRenyi
+      num_vertices: 4
+      mean_degree: 3
+      ErdosRenyi:
+        parallel: false
+        self_edges: false
 
+  # model: KronGen
+  # num_vertices: 52
+  # mean_degree: 6
+  # KronGen:
+  #   clustering_coeff: 0.72
+  #   diameter: 6
 
 # Graph analysis
 NetworkAnalyser:
@@ -14,9 +31,9 @@ NetworkAnalyser:
     enabled: true
     centralities: false
     clustering_coeff: false
-    clustering_global: false
+    clustering_global: true
     core_number: false
     degree: true
-    diameter: false
+    diameter: true
     distances: false
     reciprocity: false

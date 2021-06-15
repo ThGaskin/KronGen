@@ -266,14 +266,28 @@ class NetworkAnalyser : public Model<NetworkAnalyser<GraphType>, ModelTypes>
 
         }
         if (_clustering_global.second) {
-            this->_log->info("Computing the global clustering coefficient ... ");
-            _c_global = global_clustering_coeff(_g);
-        }
+            // if graph is Kronecker graph, clustering coefficient will have
+            // been calculated during the creation process
+            if (_g[0].state.clustering_global != -1) {
+                _c_global = _g[0].state.clustering_global;
+            }
+            else {
+                this->_log->info("Computing the global clustering coefficient ... ");
+                _c_global = global_clustering_coeff(_g);
+            }
 
+        }
         if (_diameter.second) {
-            this->_log->info("Computing the diameter ... ");
-            auto starting_point = fourSweep<vertices_size_type>(_g);
-             _diam = iFUB(starting_point.first, starting_point.second, 0, _g);
+            // if graph is Kronecker graph, diameter will have been
+            // calculated during the creation process
+            if (_g[0].state.diameter != -1) {
+                _diam = _g[0].state.diameter;
+            }
+            else {
+                this->_log->info("Computing the diameter ... ");
+                auto starting_point = fourSweep<vertices_size_type>(_g);
+                 _diam = iFUB(starting_point.first, starting_point.second, 0, _g);
+            }
         }
 
         this->_log->info("Graph analysis complete.");

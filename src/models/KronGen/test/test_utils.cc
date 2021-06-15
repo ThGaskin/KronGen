@@ -26,11 +26,17 @@ struct Infrastructure : public BaseInfrastructure<> {
     Infrastructure() : BaseInfrastructure<>("test_utils.yml") {};
 };
 
-struct Vertex {};
+struct VertexState {
+    double clustering_global = -1;
+    double diameter = -1;
+};
 struct Edge {};
 
 /// The test graph types
 struct Test_Graph : Infrastructure {
+
+  using VertexTraits = Utopia::GraphEntityTraits<VertexState>;
+  using Vertex = Utopia::GraphEntity<VertexTraits>;
 
   // undirected
   using G_vec_u = boost::adjacency_list<
@@ -39,6 +45,7 @@ struct Test_Graph : Infrastructure {
                       boost::undirectedS,
                       Vertex,              // vertex struct
                       Edge>;               // edge struct
+
 };
 
 BOOST_FIXTURE_TEST_CASE(test_Kronecker_properties, Test_Graph)

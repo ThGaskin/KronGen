@@ -23,11 +23,17 @@ struct Infrastructure : public BaseInfrastructure<> {
     Infrastructure() : BaseInfrastructure<>("test_graph_creation.yml") {};
 };
 
-struct Vertex {};
+struct VertexState {
+    double clustering_global = -1;
+    double diameter = -1;
+};
 struct Edge {};
 
 /// The test graph types
 struct Test_Graph : Infrastructure {
+
+  using VertexTraits = Utopia::GraphEntityTraits<VertexState>;
+  using Vertex = Utopia::GraphEntity<VertexTraits>;
 
   // undirected
   using G_vec_u = boost::adjacency_list<
@@ -36,6 +42,8 @@ struct Test_Graph : Infrastructure {
                       boost::undirectedS,
                       Vertex,              // vertex struct
                       Edge>;               // edge struct
+
+
 };
 
 // -- Helper functions --------------------------------------------------------
@@ -71,7 +79,7 @@ BOOST_FIXTURE_TEST_CASE(create_Kron_graph, Test_Graph)
 
         const auto g0 = create_Kronecker_graph<G_vec_u>(test_cfg, *rng);
         std::size_t num_vertices = 1;
-        std::size_t mean_degree = 1;
+        double mean_degree = 1;
         bool is_complete = true;
 
         for (const auto& factor_map : test_cfg["Kronecker"]) {
@@ -81,6 +89,11 @@ BOOST_FIXTURE_TEST_CASE(create_Kron_graph, Test_Graph)
             num_vertices *= get_as<std::size_t>("num_vertices", factor_cfg);
             if (get_as<std::string>("model", factor_cfg) == "complete") {
                 mean_degree *= get_as<std::size_t>("num_vertices", factor_cfg);
+            }
+            else if (get_as<std::string>("model", factor_cfg) == "chain") {
+                const auto N = get_as<std::size_t>("num_vertices", factor_cfg);
+                double k = (2*N-2)/(static_cast<double>(N));
+                mean_degree *= (k+1);
             }
             else {
                 mean_degree *= (get_as<std::size_t>("mean_degree", factor_cfg)+1);

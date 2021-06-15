@@ -17,6 +17,9 @@ Graph1:
         WattsStrogatz:
           oriented: false
           p_rewire: 0.2
+    NetworkAnalyser:
+      graph_analysis:
+        enabled: false
 Graph2:
   params:
     model: Kronecker
@@ -58,3 +61,24 @@ Graph4:
       Graph2:
         num_vertices: 5
         model: complete
+Graph5:
+  params:
+    model: Kronecker
+    Kronecker:
+      Graph1:
+        num_vertices: 10
+        mean_degree: 4
+        model: zero_c
+      Graph2:
+        num_vertices: 6
+        model: chain
+Graph6:
+  params:
+    model: Kronecker
+    Kronecker:
+      Graph1:
+        num_vertices: 11
+        mean_degree: 4
+        model: zero_c
+  throws: std::invalid_argument
+  match: "N must be even!"

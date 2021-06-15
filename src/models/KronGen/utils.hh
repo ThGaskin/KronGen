@@ -90,7 +90,7 @@ std::vector<std::pair<std::size_t, std::size_t>> mean_deg_factors (const std::si
 {
     std::vector<bool> candidates(std::round(static_cast<double>(m)/2.+2), true);
     std::vector<std::pair<std::size_t, std::size_t>> res;
-    for (int i = 1; i < std::round(static_cast<double>(m)); ++i) {
+    for (int i = 1; i < std::round(static_cast<double>(m)/2); ++i) {
         if (not ((m+1) % (i+1)) && (candidates[i]==true)) {
             auto k = ((m+1)/(i+1)-1);
             res.push_back({i, k});
@@ -170,6 +170,54 @@ double get_mean_deg_c(const double c_H,
     // always select positive root
     return (fabs(g));
 
+}
+
+/// Calculates graph properties (clustering coefficient and diameter) on the go
+/// as a Kronecker graph is being generated
+template<typename Graph>
+void calculate_properties(Graph& g,
+                          Graph& h,
+                          bool& first_run,
+                          const bool& calculate_c,
+                          const bool& calculate_diam,
+                          double& c_global,
+                          double& diam,
+                          double& mean_deg,
+                          double& variance)
+{
+    using vertices_size_type = typename boost::graph_traits<Graph>::vertices_size_type;
+
+    // Calculate the clustering coefficient
+    if (calculate_c) {
+        const double c_temp = Utopia::Models::NetworkAnalyser::global_clustering_coeff(h);
+        const auto deg_stats = Utopia::Models::NetworkAnalyser::degree_statistics(h);
+        if (first_run) {
+            c_global = c_temp;
+            mean_deg = deg_stats.first;
+            variance = deg_stats.second;
+            first_run = false;
+        }
+        else {
+            c_global = Kronecker_clustering(c_global,
+                                            c_temp,
+                                            mean_deg,
+                                            deg_stats.first,
+                                            variance,
+                                            deg_stats.second);
+            variance = Kronecker_degree_variance(mean_deg,
+                                                 deg_stats.first,
+                                                 variance,
+                                                 deg_stats.second);
+            mean_deg = Kronecker_mean_degree(mean_deg, deg_stats.first);
+        }
+    }
+
+    // Calculate the diameter
+    if (calculate_diam) {
+        const auto starting_point = Utopia::Models::NetworkAnalyser::fourSweep<vertices_size_type>(h);
+        const double d = Utopia::Models::NetworkAnalyser::iFUB(starting_point.first, starting_point.second, 0, h);
+        diam = std::max(diam, d);
+    }
 }
 
 }

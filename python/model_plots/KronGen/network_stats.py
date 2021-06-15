@@ -1,9 +1,17 @@
+import matplotlib
 import matplotlib.pyplot as plt
 import numpy as np
 import math
 
 from utopya import DataManager, UniverseGroup
 from utopya.plotting import is_plot_func, PlotHelper, UniversePlotCreator
+
+from matplotlib import rc
+
+# matplotlib.rcParams['mathtext.fontset']='stix'
+# matplotlib.rcParams['font.family']='serif'
+# rc('text', usetex=True)
+
 
 # -----------------------------------------------------------------------------
 @is_plot_func(creator_type=UniversePlotCreator)
@@ -43,14 +51,14 @@ def network_stats(dm: DataManager, *,
         hlpr.select_axis(0, i)
         data_to_plot = np.asarray(data[plots[i]].data)[0]
         hist = hlpr.ax.hist(data_to_plot, **plot_kwargs)
-        if (plots[i] == 'distance_max'):
+        if (plots[i] == 'diameter' or plots[i]=="distance_max"):
             loc = np.max(data_to_plot)
-            txt = f"max: {np.around(loc, 3)}"
-            hlpr.ax.text(0.89*loc, np.max(hist[0]), txt, color="red")
+            txt = f"diameter: {np.around(loc, 3)}"
+            hlpr.ax.text(1.01*loc, 0.95*np.max(hist[0]), txt, color="cornflowerblue")
         else:
             loc = np.mean(data_to_plot)
             txt = f"mean: {np.around(loc, 3)}"
-            hlpr.ax.text(1.01*loc, np.max(hist[0]), txt, color="red")
-        hlpr.ax.axvline(loc, color="red")
+            hlpr.ax.text(1.01*loc, np.max(hist[0]), txt, color="cornflowerblue")
+            hlpr.ax.axvline(loc, color="cornflowerblue")
         hlpr.ax.set_title(plots[i])
         hlpr.ax.set_yscale('log')

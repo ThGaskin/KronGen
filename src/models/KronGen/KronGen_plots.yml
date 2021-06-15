@@ -16,9 +16,9 @@ graph:
     positions:
       model: spring                   # The spring model positions the nodes
                                       # such that edge lengths are reduced.
-      k: 10                          # Tweaking the spring model by adjusting
+      k: 1                          # Tweaking the spring model by adjusting
                                       # the optimal edge length (k) and the
-      iterations: 5               # maximum number of iterations done.
+      iterations: 50               # maximum number of iterations done.
     nodes:
       node_color:
        from_property: degree     # Map the 'some_state' data to the color
@@ -43,6 +43,7 @@ nw_stats:
     set_scales:
       x: log
       y: log
+  color: black
 
 nw_stats_sweep:
   based_on: multiverse.errorbars
@@ -150,7 +151,7 @@ diameter:
   based_on: sweep_stats
   select_and_combine:
     fields:
-      p_rewire:
+      x:
         path: cfg/NetworkAnalyser
       diameter:
         path: data/KronGen/NetworkAnalyser/graph_data/diameter
@@ -159,6 +160,7 @@ diameter:
             args: [!dag_prev ]
             kwargs:
               time: -1
+
 
   transform:
     - operation: .isel
@@ -169,5 +171,5 @@ diameter:
     set_title:
       title: Network diameter
     set_labels:
-      x: p_rewire
+      x: sweep parameter
       y: diameter
