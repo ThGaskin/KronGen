@@ -94,8 +94,8 @@ Graph create_Kronecker_graph(const Config& cfg,
        calculate_diam = (get_as<bool>("diameter", analysis_cfg)
                     && get_as<bool>("enabled", analysis_cfg));
     }
-    catch (YAML::InvalidNode) {}
-    catch (Utopia::KeyError) {}
+    catch (YAML::InvalidNode&) {}
+    catch (Utopia::KeyError&) {}
     bool first_run = true;
 
     // Generate Graph
@@ -121,8 +121,7 @@ Graph create_Kronecker_graph(const Config& cfg,
 
         // ... Calulate properties: stored in first vertex .....................
         // Global clustering coefficient
-        Utils::calculate_properties (g,
-                                     h,
+        Utils::calculate_properties (h,
                                      first_run,
                                      calculate_c,
                                      calculate_diam,
@@ -248,10 +247,10 @@ Graph create_graph(const Config& cfg, RNGType& rng, const bool includes_analysis
   try {
       nw_cfg = get_as<Config>("graph_analysis", cfg["NetworkAnalyser"]);
   }
-  catch (YAML::InvalidNode){
+  catch (YAML::InvalidNode&){
       nw_cfg = YAML::Node(YAML::NodeType::Map);
   }
-  catch (Utopia::KeyError){
+  catch (Utopia::KeyError&){
       nw_cfg = YAML::Node(YAML::NodeType::Map);
   }
   // Get the graph generating model

@@ -175,8 +175,7 @@ double get_mean_deg_c(const double c_H,
 /// Calculates graph properties (clustering coefficient and diameter) on the go
 /// as a Kronecker graph is being generated
 template<typename Graph>
-void calculate_properties(Graph& g,
-                          Graph& h,
+void calculate_properties(Graph& h,
                           bool& first_run,
                           const bool& calculate_c,
                           const bool& calculate_diam,

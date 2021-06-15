@@ -73,3 +73,26 @@ Graph5:
         mean_degree: 2
         regular:
           oriented: false
+Graph6:
+  params:
+    model: Kronecker
+    Kronecker:
+      Graph1:
+        num_vertices: 20
+        model: zero_c
+        mean_degree: 8
+      Graph2:
+        num_vertices: 8
+        model: chain
+
+Graph6:
+  params:
+    model: Kronecker
+    Kronecker:
+      Graph1:
+        model: zero_c
+        num_vertices: 10
+        mean_degree: 4
+      Graph2:
+        model: chain
+        num_vertices: 19

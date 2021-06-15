@@ -70,12 +70,14 @@ BOOST_FIXTURE_TEST_CASE(test_Kronecker_properties, Test_Graph)
           for (const auto& factor_map : test_cfg["Kronecker"]) {
               auto g = create_graph<G_vec_u>(factor_map.second, *rng);
 
+              const auto model = get_as<std::string>("model", factor_map.second);
+              const auto n_vertices = boost::num_vertices(g);
               const auto deg_stats = degree_statistics(g);
               const auto clustering = global_clustering_coeff(g);
               const auto starting_point = fourSweep<vertices_size_type>(g);
               const double d = iFUB(starting_point.first, starting_point.second, 0, g);
 
-              N.push_back(boost::num_vertices(g));
+              N.push_back(n_vertices);
               k.push_back(static_cast<double>(deg_stats.first));
               var.push_back(static_cast<double>(deg_stats.second));
               c.push_back(clustering);
@@ -85,6 +87,14 @@ BOOST_FIXTURE_TEST_CASE(test_Kronecker_properties, Test_Graph)
                   add_edge(w, w, g);
               }
               g0 = Kronecker_product(g0, g);
+
+              //Check properties of particular graphs: zero_c, chain
+              if (model == "chain") {
+                  BOOST_TEST(d == n_vertices - 1);
+              }
+              else if (model == "zero_c"){
+                  BOOST_TEST(clustering == 0);
+              }
           }
           for (const auto w : Utopia::range<IterateOver::vertices>(g0)) {
               remove_edge(w, w, g0);
@@ -129,8 +139,6 @@ BOOST_FIXTURE_TEST_CASE(test_Kronecker_properties, Test_Graph)
           const auto d = iFUB(starting_point.first, starting_point.second, 0, g0);
           BOOST_TEST_CHECKPOINT("Testing diameter");
           BOOST_TEST(d == std::max(diam[0], diam[1]));
-
-
 
       },
       cfg

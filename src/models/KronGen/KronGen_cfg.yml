@@ -5,8 +5,8 @@ create_graph:
   num_vertices: 100
   Kronecker:
     Graph1:
-      model: zero_c
-      num_vertices: 250
+      model: regular
+      num_vertices: 10
       mean_degree: 2
       regular:
         oriented: false
@@ -31,9 +31,9 @@ NetworkAnalyser:
     enabled: true
     centralities: false
     clustering_coeff: false
-    clustering_global: true
+    clustering_global: false
     core_number: false
     degree: true
-    diameter: true
+    diameter: false
     distances: false
     reciprocity: false
