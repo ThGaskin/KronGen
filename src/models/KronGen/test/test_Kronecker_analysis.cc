@@ -1,4 +1,4 @@
-#define BOOST_TEST_MODULE Kronecker analysis test
+#define BOOST_TEST_MODULE Kronecker graph analysis test
 
 #include <boost/test/included/unit_test.hpp>
 #include <boost/mpl/vector.hpp>
@@ -29,6 +29,8 @@ struct Infrastructure : public BaseInfrastructure<> {
 struct VertexState {
     double clustering_global = -1;
     double diameter = -1;
+    double var = -1;
+    double mean_deg = -1;
 };
 struct Edge {};
 

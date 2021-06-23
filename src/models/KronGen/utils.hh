@@ -1,47 +1,70 @@
 #ifndef UTOPIA_MODELS_KRONGEN_UTILS
 #define UTOPIA_MODELS_KRONGEN_UTILS
 
+#include <random>
+#include <algorithm>
+
+#include <boost/graph/adjacency_list.hpp>
+#include <boost/graph/adjacency_matrix.hpp>
+
+#include "utopia/core/graph/iterator.hh"
+
+#include "../NetworkAnalyser/graph_metrics.hh"
+
 namespace Utopia::Models::KronGen::Utils {
 
+using namespace std;
+using pair_pt = typename std::pair<std::pair<size_t, double>, std::pair<size_t, double>>;
+using vector_pt = typename std::vector<pair<size_t, size_t>>;
+
+// ... Kronecker properties ....................................................
 /// Kronecker product of graphs. Graphs must have a self-loop on every node
 /**
-  * \param K  The first factor
-  * \param G  The second factor
+  * \param G    The first factor
+  * \param H    The second factor
+  *
+  * \return K   The Kronecker product
 */
 template<typename Graph>
-Graph Kronecker_product(Graph& K, Graph& G) {
+Graph Kronecker_product(Graph& G, Graph& H) {
     using namespace boost;
     using namespace Utopia;
 
-    const std::size_t M = num_vertices(G);
-    Graph P{num_vertices(K) * M};
+    const size_t M = num_vertices(H);
+    Graph K{num_vertices(G) * M};
 
-    for(const auto k : Utopia::range<IterateOver::edges>(K)) {
-        for(const auto g : Utopia::range<IterateOver::edges>(G)) {
-            const auto s_1 = source(k, K);
-            const auto s_2 = source(g, G);
-            const auto t_1 = target(k, K);
-            const auto t_2 = target(g, G);
+    for(const auto g : Utopia::range<IterateOver::edges>(G)) {
+        for(const auto h : Utopia::range<IterateOver::edges>(H)) {
+            const auto s_1 = source(g, G);
+            const auto s_2 = source(h, H);
+            const auto t_1 = target(g, G);
+            const auto t_2 = target(h, H);
 
             auto i = s_1*M + s_2;
             auto j = t_1*M + t_2;
-            if ((not edge(i, j, P).second) && (not edge(j, i, P).second)){
-                add_edge(i, j, P);
+            if ((not edge(i, j, K).second) && (not edge(j, i, K).second)){
+                add_edge(i, j, K);
             }
 
             i = s_1*M + t_2;
             j = t_1*M + s_2;
-            if ((not edge(i, j, P).second) && (not edge(j, i, P).second)){
-                add_edge(i, j, P);
+            if ((not edge(i, j, K).second) && (not edge(j, i, K).second)){
+                add_edge(i, j, K);
             }
         }
     }
 
-    return P;
+    return K;
 }
 
 /// Calculate the number of vertices of a Kronecker product of two graphs G, H
-std::size_t Kronecker_num_vertices (const std::size_t N, const std::size_t M)
+/**
+  * \param N    The number of vertices of G
+  * \param M    The number of vertices of H
+  *
+  * \return     The number of vertices of G (x) H
+*/
+size_t Kronecker_num_vertices (const size_t N, const size_t M)
 {
     return (N*M);
 }
@@ -70,36 +93,6 @@ double Kronecker_mean_degree_factor (const double m, const double g)
     return ((m+1)/(g+1)-1);
 }
 
-/// Return a list of all possible vertex number factor pairs producing a desired product
-std::vector<std::pair<std::size_t, std::size_t>> N_factors (const std::size_t N)
-{
-    std::vector<bool> candidates(std::round(static_cast<double>(N)/2.+2), true);
-    std::vector<std::pair<std::size_t, std::size_t>> res = {{1, N}};
-    for (int i = 2; i < std::round(static_cast<double>(N)/2); ++i) {
-        if (not (N % i) && (candidates[i]==true)) {
-            res.push_back({i, N/i});
-            candidates[N/i] = false;
-        }
-    }
-
-    return res;
-}
-
-/// Return a list of all possible mean degree factors producing a desired product
-std::vector<std::pair<std::size_t, std::size_t>> mean_deg_factors (const std::size_t m)
-{
-    std::vector<bool> candidates(std::round(static_cast<double>(m)/2.+2), true);
-    std::vector<std::pair<std::size_t, std::size_t>> res;
-    for (int i = 1; i < std::round(static_cast<double>(m)/2); ++i) {
-        if (not ((m+1) % (i+1)) && (candidates[i]==true)) {
-            auto k = ((m+1)/(i+1)-1);
-            res.push_back({i, k});
-            candidates[k] = false;
-        }
-    }
-
-    return res;
-}
 
 /// Calculate the clustering coefficient of a Kronecker product of two graphs G, H
 /** This product is symmetric in G, H
@@ -184,12 +177,13 @@ void calculate_properties(Graph& h,
                           double& mean_deg,
                           double& variance)
 {
+    using namespace Utopia::Models::NetworkAnalyser;
     using vertices_size_type = typename boost::graph_traits<Graph>::vertices_size_type;
 
     // Calculate the clustering coefficient
     if (calculate_c) {
-        const double c_temp = Utopia::Models::NetworkAnalyser::global_clustering_coeff(h);
-        const auto deg_stats = Utopia::Models::NetworkAnalyser::degree_statistics(h);
+        const double c_temp = global_clustering_coeff(h);
+        const auto deg_stats = degree_statistics(h);
         if (first_run) {
             c_global = c_temp;
             mean_deg = deg_stats.first;
@@ -213,10 +207,154 @@ void calculate_properties(Graph& h,
 
     // Calculate the diameter
     if (calculate_diam) {
-        const auto starting_point = Utopia::Models::NetworkAnalyser::fourSweep<vertices_size_type>(h);
-        const double d = Utopia::Models::NetworkAnalyser::iFUB(starting_point.first, starting_point.second, 0, h);
-        diam = std::max(diam, d);
+        const auto starting_point = fourSweep<vertices_size_type>(h);
+        const double d = iFUB(starting_point.first, starting_point.second, 0, h);
+        diam = max(diam, d);
     }
+}
+
+
+// ... Utility functions .......................................................
+
+/// Add self_edges to a graph
+template<typename Graph>
+void add_self_edges (Graph& g) {
+    for (const auto& v : range<IterateOver::vertices>(g)) {
+        boost::add_edge(v, v, g);
+    }
+}
+
+/// Remove self_edges from a graph
+template<typename Graph>
+void remove_self_edges (Graph& g) {
+    for (const auto& v : range<IterateOver::vertices>(g)) {
+        boost::remove_edge(v, v, g);
+    }
+}
+
+
+/// Return a list of possible vertex number factor pairs producing
+// a desired product
+vector_pt N_factors (const size_t N)
+{
+    vector<bool> candidates(round(static_cast<double>(N)/2.+2), true);
+    vector_pt res;
+    for (int i = 2; i < round(static_cast<double>(N)/2+1); ++i) {
+        if (not (N % i) && (candidates[i]==true)) {
+            res.push_back({i, N/i});
+            candidates[N/i] = false;
+        }
+    }
+    return res;
+}
+
+/// Return a list of possible vertex number factor pairs producing a desired
+/// product, or the closest possible factor pairs
+vector_pt closest_N_factors (const size_t N)
+{
+    auto res = N_factors(N);
+    if (res.empty()) {
+        res = closest_N_factors(N+1);
+        if (N>4) {
+            auto res2 = closest_N_factors(N-1);
+            res.insert(res.end(), res2.begin(), res2.end());
+        }
+    }
+
+    return res;
+}
+
+/// Return a list of all possible mean degree factors producing a desired product
+vector_pt mean_deg_factors (const size_t m)
+{
+    vector<bool> candidates(round(static_cast<double>(m)/2.+2), true);
+    vector_pt res;
+    for (int i = 1; i < round(static_cast<double>(m)/2); ++i) {
+        if (not ((m+1) % (i+1)) && (candidates[i]==true)) {
+            auto k = ((m+1)/(i+1)-1);
+            res.push_back({i, k});
+            candidates[k] = false;
+        }
+    }
+
+    return res;
+}
+
+/// Return a list of possible mean degree number factor pairs producing a desired
+/// product, or the closest possible factor pairs
+vector_pt closest_mean_deg_factors (const size_t m)
+{
+    auto res = mean_deg_factors(m);
+    if (res.empty()) {
+        res = closest_mean_deg_factors(m+1);
+        if (m>3) {
+            auto res2 = closest_mean_deg_factors(m-1);
+            res.insert(res.end(), res2.begin(), res2.end());
+        }
+    }
+
+    return res;
+}
+
+/// Return two factors of a pair consisting of {num_vertices, mean_degree}
+template<typename RNGType>
+pair_pt get_factors_N_m (const size_t N,
+                         const size_t m,
+                         RNGType& rng)
+{
+    // Get the Kronecker factors of N, m and shuffle
+    auto N_factors = Utils::closest_N_factors(N);
+    auto m_factors = Utils::closest_mean_deg_factors(m);
+    shuffle(N_factors.begin(), N_factors.end(), rng);
+    shuffle(m_factors.begin(), m_factors.end(), rng);
+
+    for (const auto& N_i : N_factors) {
+        for (const auto& m_i : m_factors) {
+            if ((N_i.first > m_i.first) and (N_i.second > m_i.second)) {
+                return {{N_i.first, m_i.first}, {N_i.second, m_i.second}};
+            }
+            else if ((N_i.second > m_i.first) and (N_i.first > m_i.second)) {
+                return {{N_i.second, m_i.first}, {N_i.first, m_i.second}};
+            }
+        }
+    }
+
+    return {{0, 0},{0, 0}};
+}
+
+/// Returns an estimation of the diameter of a network, given the number of
+/// vertices and the mean degree
+/**
+  * \param N     The number of vertices
+  * \param m     The mean degree
+  *
+  * \return d    The estimated diameter
+*/
+// To do: test me
+// To do: extreme cases
+double diameter_estimation (const double N, const double m) {
+    if (m == 0) {
+        return -1;
+    }
+    else if (m == 1) {
+        return (N-1);
+    }
+    else if (N == 2) {
+        return 1;
+    }
+    else {
+        return (1.6 * log(N)/log(m));
+    }
+}
+
+/// Returns the mean degree of a 1-d chain of length N
+/**
+  * \param N    The length of the chain
+  *
+  * \return m   The mean degree of the graph
+*/
+double mean_degree_chain_graph (const double N) {
+    return (2*(N-1)/N);
 }
 
 }

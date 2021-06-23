@@ -1,29 +1,37 @@
 ---
-# The model configuration for the KronGen model
+# The default model configuration
 create_graph:
-  model: Kronecker
-  num_vertices: 100
+  graph_defaults: &defaults
+    BarabasiAlbert:
+      parallel: false
+    ErdosRenyi:
+      self_edges: false
+      parallel: false
+    KlemmEguiluz:
+      mu: 0.2
+    regular:
+      oriented: false
+    star:
+      diameter: 4
+    WattsStrogatz:
+      oriented: false
+      p_rewire: 0.2
+
+  num_vertices: 200
+  mean_degree: 4
+  model: ErdosRenyi
+  <<: *defaults
   Kronecker:
     Graph1:
-      model: regular
-      num_vertices: 10
-      mean_degree: 2
-      regular:
-        oriented: false
-    Graph2:
+      num_vertices: 50
+      mean_degree: 10
       model: ErdosRenyi
-      num_vertices: 4
-      mean_degree: 3
-      ErdosRenyi:
-        parallel: false
-        self_edges: false
-
-  # model: KronGen
-  # num_vertices: 52
-  # mean_degree: 6
-  # KronGen:
-  #   clustering_coeff: 0.72
-  #   diameter: 6
+      <<: *defaults
+    Graph2:
+      num_vertices: 30
+      mean_degree: 4
+      model: BarabasiAlbert
+      <<: *defaults
 
 # Graph analysis
 NetworkAnalyser:

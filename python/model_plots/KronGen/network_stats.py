@@ -3,14 +3,15 @@ import matplotlib.pyplot as plt
 import numpy as np
 import math
 
+from matplotlib import rc
 from utopya import DataManager, UniverseGroup
 from utopya.plotting import is_plot_func, PlotHelper, UniversePlotCreator
 
-from matplotlib import rc
+from .tools import titles
 
-# matplotlib.rcParams['mathtext.fontset']='stix'
-# matplotlib.rcParams['font.family']='serif'
-# rc('text', usetex=True)
+matplotlib.rcParams['mathtext.fontset']='stix'
+matplotlib.rcParams['font.family']='serif'
+rc('text', usetex=True)
 
 
 # -----------------------------------------------------------------------------
@@ -60,5 +61,8 @@ def network_stats(dm: DataManager, *,
             txt = f"mean: {np.around(loc, 3)}"
             hlpr.ax.text(1.01*loc, np.max(hist[0]), txt, color="cornflowerblue")
             hlpr.ax.axvline(loc, color="cornflowerblue")
-        hlpr.ax.set_title(plots[i])
-        hlpr.ax.set_yscale('log')
+        if (plots[i] == 'degree'):
+            hlpr.ax.set_xscale('log')
+            hlpr.ax.set_yscale('log')
+        hlpr.ax.set_title(titles[plots[i]])
+        #hlpr.ax.set_yscale('log')

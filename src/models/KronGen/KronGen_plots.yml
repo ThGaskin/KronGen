@@ -1,6 +1,6 @@
 graph:
   based_on: graph
-
+  enabled: false
   select:
     graph_group: graph_data
 
@@ -39,10 +39,10 @@ graph:
 nw_stats:
   based_on: network_stats
   bins: 100
-  helpers:
-    set_scales:
-      x: log
-      y: log
+  #helpers:
+    #set_scales:
+      #x: linear
+      #y: linear
   color: black
 
 nw_stats_sweep:
@@ -173,3 +173,43 @@ diameter:
     set_labels:
       x: sweep parameter
       y: diameter
+
+diameter_coeff:
+  based_on: sweep_stats
+  select_and_combine:
+    fields:
+      mean_degree:
+        path: cfg
+        transform:
+          - getitem: [!dag_prev , KronGen]
+          - getitem: [!dag_prev , create_graph]
+          - getitem: [!dag_prev , mean_degree]
+          - xr.: [ufuncs.log, !dag_prev ]
+      N:
+        path: cfg
+        transform:
+          - getitem: [!dag_prev , KronGen]
+          - getitem: [!dag_prev , create_graph]
+          - getitem: [!dag_prev , num_vertices]
+          - xr.: [ufuncs.log, !dag_prev ]
+      diameter:
+        path: data/KronGen/NetworkAnalyser/graph_data/diameter
+        transform:
+          - operation: .isel
+            args: [!dag_prev ]
+            kwargs:
+              time: -1
+
+  transform:
+    - operation: div
+      args: [!dag_tag mean_degree, !dag_tag N]
+    - operation: mul
+      args: [!dag_prev , !dag_tag diameter]
+      tag: data
+
+  helpers:
+    set_title:
+      title: Proportionality constant between $\log(N)/\log(\bar{k})$ and $diam$
+    set_labels:
+      x: mean degree
+      y: diam * $\log(\bar{k})/\log(N)$

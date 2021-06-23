@@ -6,26 +6,29 @@
 #include <boost/graph/adjacency_matrix.hpp>
 #include <boost/graph/clustering_coefficient.hpp>
 
+#include <utopia/core/graph.hh>
+#include "utopia/core/graph/iterator.hh"
 #include <utopia/core/testtools.hh>
 #include <utopia/core/types.hh>
-#include <utopia/core/graph.hh>
 
 #include "../graph_creation.hh"
+#include "test_utils.hh"
 
-using namespace Utopia::Graph;
 using namespace Utopia::TestTools;
-using namespace Utopia::Models::KronGen::GraphCreation;
+using namespace Utopia::Models::KronGen;
 
 
 // -- Types -------------------------------------------------------------------
 
 struct Infrastructure : public BaseInfrastructure<> {
-    Infrastructure() : BaseInfrastructure<>("test_graph_creation.yml") {};
+    Infrastructure() : BaseInfrastructure<>("test_Kronecker_creation.yml") {};
 };
 
 struct VertexState {
     double clustering_global = -1;
     double diameter = -1;
+    double mean_deg = -1;
+    double var = -1;
 };
 struct Edge {};
 
@@ -36,38 +39,14 @@ struct Test_Graph : Infrastructure {
   using Vertex = Utopia::GraphEntity<VertexTraits>;
 
   // undirected
-  using G_vec_u = boost::adjacency_list<
+  using Graph = boost::adjacency_list<
                       boost::vecS,         // edge container
                       boost::vecS,         // vertex container
                       boost::undirectedS,
                       Vertex,              // vertex struct
                       Edge>;               // edge struct
 
-
 };
-
-// -- Helper functions --------------------------------------------------------
-// Test against parallel or self edges
-template<typename Graph>
-void assert_no_parallel_self_edges(Graph& G) {
-    size_t num_parallel = 0;
-    for (auto [v, v_end] = boost::vertices(G); v!=v_end; ++v) {
-        for (auto [e, e_end] = boost::out_edges(*v, G); e!=e_end; ++e) {
-            int counter = 0;
-            for (auto [g, g_end] = boost::out_edges(*v, G); g!=g_end; ++g) {
-                if (target(*g, G) == target(*e, G)) {
-                    counter += 1;
-                }
-            }
-            if (counter > 1) {
-                num_parallel += 1;
-            }
-            // Check against self-edges
-            BOOST_TEST(target(*e, G) != *v);
-        }
-    }
-    BOOST_TEST(num_parallel == 0);
-}
 
 // -- Tests -------------------------------------------------------------------
 // Undirected graphs
@@ -77,7 +56,7 @@ BOOST_FIXTURE_TEST_CASE(create_Kron_graph, Test_Graph)
 
       [&](auto test_cfg){
 
-        const auto g0 = create_Kronecker_graph<G_vec_u>(test_cfg, *rng);
+        const auto g0 = GraphCreation::create_Kronecker_graph<Graph>(test_cfg, *rng);
         std::size_t num_vertices = 1;
         double mean_degree = 1;
         bool is_complete = true;
@@ -85,31 +64,35 @@ BOOST_FIXTURE_TEST_CASE(create_Kron_graph, Test_Graph)
         for (const auto& factor_map : test_cfg["Kronecker"]) {
 
             const auto factor_cfg = factor_map.second;
+            const auto model = get_as<std::string>("model", factor_cfg);
+            const auto N = get_as<std::size_t>("num_vertices", factor_cfg);
 
-            num_vertices *= get_as<std::size_t>("num_vertices", factor_cfg);
-            if (get_as<std::string>("model", factor_cfg) == "complete") {
-                mean_degree *= get_as<std::size_t>("num_vertices", factor_cfg);
+            num_vertices *= N;
+            if (model == "complete") {
+                mean_degree *= N;
             }
-            else if (get_as<std::string>("model", factor_cfg) == "chain") {
-                const auto N = get_as<std::size_t>("num_vertices", factor_cfg);
-                double k = (2*N-2)/(static_cast<double>(N));
+            else if (model == "chain") {
+                double k = 2*(N-1)/(static_cast<double>(N));
                 mean_degree *= (k+1);
+                is_complete = false;
             }
             else {
                 mean_degree *= (get_as<std::size_t>("mean_degree", factor_cfg)+1);
                 is_complete = false;
             }
         }
+
         mean_degree -= 1;
         const auto num_edges = std::round(static_cast<double>(num_vertices)/2*mean_degree);
+
         BOOST_TEST(boost::num_vertices(g0) == num_vertices);
         BOOST_TEST(boost::num_edges(g0) == num_edges);
 
-        assert_no_parallel_self_edges(g0);
+        TestUtils::assert_no_parallel_self_edges(g0);
 
         if (is_complete) {
-            for (auto [v, v_end] = boost::vertices(g0); v!=v_end; ++v) {
-                double c = boost::clustering_coefficient(g0, *v);
+            for (const auto& v : range<Utopia::IterateOver::vertices>(g0)) {
+                double c = boost::clustering_coefficient(g0, v);
                 BOOST_TEST(c == 1);
             }
         }
@@ -125,7 +108,7 @@ BOOST_FIXTURE_TEST_CASE(create_zero_clustering_graph, Test_Graph)
 
     for (const auto& N : n_vertices) {
         for (std::size_t k = 2; k < (N/2+1); ++k ){
-            const auto g = create_zero_c_graph<G_vec_u>(N, k);
+            const auto g = AuxGraphs::create_zero_c_graph<Graph>(N, k);
             double deg_sum = 0;
             BOOST_TEST(boost::num_vertices(g) == N);
             for (auto [v, v_end] = boost::vertices(g); v!=v_end; ++v) {
@@ -138,7 +121,7 @@ BOOST_FIXTURE_TEST_CASE(create_zero_clustering_graph, Test_Graph)
             BOOST_TEST(deg_sum/N == k);
             BOOST_TEST(Utopia::Models::NetworkAnalyser::global_clustering_coeff(g) == 0);
 
-            assert_no_parallel_self_edges(g);
+            TestUtils::assert_no_parallel_self_edges(g);
         }
     }
 }

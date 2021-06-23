@@ -1,10 +1,12 @@
 ---
 parameter_space:
-  seed: 42
-  num_steps: 1
-  write_every: 1
+  # ... Run defaults ...........................................................
+  run: &run_defaults
+    seed: 42
+    num_steps: 1
+    write_every: 1
 
+  <<: *run_defaults
   KronGen:
     NetworkAnalyser:
-      num_steps: 1
-      write_every: 1
+      <<: *run_defaults

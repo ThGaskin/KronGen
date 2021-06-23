@@ -1,21 +1,22 @@
-#define BOOST_TEST_MODULE Kronecker graph utils test
+#define BOOST_TEST_MODULE Kronecker graph properties test
 
 #include <boost/test/included/unit_test.hpp>
 #include <boost/mpl/vector.hpp>
 #include <boost/graph/adjacency_list.hpp>
 #include <boost/graph/adjacency_matrix.hpp>
-#include <boost/graph/clustering_coefficient.hpp>
 
 #include <utopia/core/testtools.hh>
 #include <utopia/core/types.hh>
 #include <utopia/core/graph.hh>
 
+#include "../aux_graphs.hh"
 #include "../graph_creation.hh"
-#include "../../NetworkAnalyser/graph_metrics.hh"
 #include "../utils.hh"
 
+#include "../../NetworkAnalyser/graph_metrics.hh"
+
 using namespace Utopia::TestTools;
-using namespace Utopia::Models::KronGen::GraphCreation;
+using namespace Utopia::Models::KronGen;
 using namespace Utopia::Models::KronGen::Utils;
 using namespace Utopia::Models::NetworkAnalyser;
 using namespace Utopia;
@@ -23,12 +24,14 @@ using namespace Utopia;
 // -- Types -------------------------------------------------------------------
 
 struct Infrastructure : public BaseInfrastructure<> {
-    Infrastructure() : BaseInfrastructure<>("test_utils.yml") {};
+    Infrastructure() : BaseInfrastructure<>("test_Kronecker_properties.yml") {};
 };
 
 struct VertexState {
     double clustering_global = -1;
     double diameter = -1;
+    double var = -1;
+    double mean_deg = -1;
 };
 struct Edge {};
 
@@ -39,7 +42,7 @@ struct Test_Graph : Infrastructure {
   using Vertex = Utopia::GraphEntity<VertexTraits>;
 
   // undirected
-  using G_vec_u = boost::adjacency_list<
+  using Graph = boost::adjacency_list<
                       boost::vecS,         // edge container
                       boost::vecS,         // vertex container
                       boost::undirectedS,
@@ -50,15 +53,14 @@ struct Test_Graph : Infrastructure {
 
 BOOST_FIXTURE_TEST_CASE(test_Kronecker_properties, Test_Graph)
 {
-    using vertices_size_type = typename boost::graph_traits<G_vec_u>::vertices_size_type;
+    using vertices_size_type = typename boost::graph_traits<Graph>::vertices_size_type;
 
     test_config_callable (
 
       [&](auto test_cfg){
 
-          G_vec_u g0{};
-          auto v0 = boost::add_vertex(g0);
-          boost::add_edge(v0, v0, g0);
+          Graph g0{1};
+          add_self_edges(g0);
 
           std::vector<std::size_t>N;
           std::vector<double>k;
@@ -68,7 +70,7 @@ BOOST_FIXTURE_TEST_CASE(test_Kronecker_properties, Test_Graph)
 
           BOOST_TEST_CHECKPOINT("Generating Kronecker graph ... ");
           for (const auto& factor_map : test_cfg["Kronecker"]) {
-              auto g = create_graph<G_vec_u>(factor_map.second, *rng);
+              auto g = GraphCreation::create_graph<Graph>(factor_map.second, *rng);
 
               const auto model = get_as<std::string>("model", factor_map.second);
               const auto n_vertices = boost::num_vertices(g);
@@ -83,29 +85,18 @@ BOOST_FIXTURE_TEST_CASE(test_Kronecker_properties, Test_Graph)
               c.push_back(clustering);
               diam.push_back(d);
 
-              for (const auto w : Utopia::range<IterateOver::vertices>(g)) {
-                  add_edge(w, w, g);
-              }
+              add_self_edges(g);
               g0 = Kronecker_product(g0, g);
 
-              //Check properties of particular graphs: zero_c, chain
-              if (model == "chain") {
-                  BOOST_TEST(d == n_vertices - 1);
-              }
-              else if (model == "zero_c"){
-                  BOOST_TEST(clustering == 0);
-              }
           }
-          for (const auto w : Utopia::range<IterateOver::vertices>(g0)) {
-              remove_edge(w, w, g0);
-          }
+          remove_self_edges(g0);
 
           BOOST_TEST_CHECKPOINT("Kronecker graph generated");
 
           const auto deg_stats = degree_statistics(g0);
 
           // Check number of vertices
-          const std::size_t n_vertices = num_vertices(g0);
+          const std::size_t n_vertices = boost::num_vertices(g0);
           BOOST_TEST_CHECKPOINT("Testing vertex count");
           BOOST_TEST(n_vertices == Kronecker_num_vertices(N[0], N[1]));
 
