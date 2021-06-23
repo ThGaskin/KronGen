@@ -181,8 +181,7 @@ private:
 
       GraphType g = GraphCreation::create_graph<GraphType>(
             this->_cfg,
-            *this->_rng,
-            true
+            *this->_rng
       );
 
       this->_log->info("Graph creation complete.");

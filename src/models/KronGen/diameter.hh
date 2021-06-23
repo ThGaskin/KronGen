@@ -7,6 +7,7 @@
 #include <boost/property_map/dynamic_property_map.hpp>
 
 #include "aux_graphs.hh"
+#include "clustering.hh"
 #include "utils.hh"
 
 #include "../NetworkAnalyser/graph_metrics.hh"
@@ -234,9 +235,8 @@ Graph create_second_Kronecker_factor(const double N,
 
                 Utils::add_self_edges(t);
 
-                H = (distr(rng) < 0.5)
-                  ? Utils::Kronecker_product(H, t)
-                  : Utils::Kronecker_product(t, H);
+                H = Utils::Kronecker_product(H, t, rng, distr);
+
             }
 
             return H;
@@ -258,8 +258,8 @@ Graph create_second_Kronecker_factor(const double N,
   */
 template<typename Graph, typename RNGType>
 void create_diameter_graph (Graph& K,
-                            const double N,
-                            const double m,
+                            double N,
+                            double m,
                             const double c,
                             const double diameter,
                             const std::string degree_distr,
@@ -268,14 +268,8 @@ void create_diameter_graph (Graph& K,
                             RNGType& rng,
                             std::uniform_real_distribution<double>& distr)
 {
-    // ... FIXME ...............................................................
-    // To do: Adjust to clustering coefficient
-    if (c != -1) {
-        double trash = c;
-        trash +=1;
-    }
-    // .........................................................................
-
+    // Adjust N and m to c
+    Clustering::adjust_N_m_to_c(N, m, c);
 
     // Extreme case: mean degree less than 3
     if (m <= 3) {
@@ -298,9 +292,7 @@ void create_diameter_graph (Graph& K,
 
     //... Second Kronecker factor ..............................................
     double c_H = -1;
-    double m_H = 0;
-    double var_H = 0;
-    double diam_H = 0;
+    double m_H = 0, var_H = 0, diam_H = 0;
     bool discard_first_factor = false;
 
     Graph H = create_second_Kronecker_factor<Graph>(N, N_G, m, m_G,
@@ -314,10 +306,7 @@ void create_diameter_graph (Graph& K,
     // Second factor successfully created
     if (not discard_first_factor) {
 
-        K = (distr(rng) < 0.5)
-          ? Utils::Kronecker_product(G, H)
-          : Utils::Kronecker_product(H, G);
-
+        K = Utils::Kronecker_product(G, H, rng, distr);
 
         K[0].state.mean_deg = Utils::Kronecker_mean_degree(m_G, m_H);
         K[0].state.var = Utils::Kronecker_degree_variance(m_G, m_H, var_G, var_H);

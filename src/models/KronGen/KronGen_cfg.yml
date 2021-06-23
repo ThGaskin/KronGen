@@ -3,22 +3,22 @@
 create_graph:
   graph_defaults: &defaults
     BarabasiAlbert:
-      parallel: false
+      parallel: !is-bool false
     ErdosRenyi:
-      self_edges: false
-      parallel: false
+      self_edges: !is-bool false
+      parallel: !is-bool false
     KlemmEguiluz:
-      mu: 0.2
+      mu: !is-probability 0.2
     regular:
-      oriented: false
+      oriented: !is-bool false
     star:
-      diameter: 4
+      diameter: !is-positive-int 4
     WattsStrogatz:
-      oriented: false
-      p_rewire: 0.2
+      oriented: !is-bool false
+      p_rewire: !is-probability 0.2
 
-  num_vertices: 200
-  mean_degree: 4
+  num_vertices: !is-positive-int 200
+  mean_degree: !is-positive-int 4
   model: ErdosRenyi
   <<: *defaults
   Kronecker:

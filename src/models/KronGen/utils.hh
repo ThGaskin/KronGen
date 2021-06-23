@@ -27,8 +27,8 @@ using vector_pt = typename std::vector<pair<size_t, size_t>>;
 */
 template<typename Graph>
 Graph Kronecker_product(Graph& G, Graph& H) {
+
     using namespace boost;
-    using namespace Utopia;
 
     const size_t M = num_vertices(H);
     Graph K{num_vertices(G) * M};
@@ -55,6 +55,27 @@ Graph Kronecker_product(Graph& G, Graph& H) {
     }
 
     return K;
+}
+
+/// Randomised ronecker product of graphs. Graphs must have a self-loop on every
+/// node
+/**
+  * \param G      The first factor
+  * \param H      The second factor
+  * \param rng    The model rng
+  * \param distr  The uniform real distribution
+  *
+  * \return K     The Kronecker product
+*/
+template<typename Graph, typename RNGType>
+Graph Kronecker_product(Graph& G,
+                        Graph& H,
+                        RNGType& rng,
+                        std::uniform_real_distribution<double>& distr)
+{
+    return (distr(rng) < 0.5)
+      ? (Kronecker_product(G, H))
+      : (Kronecker_product(H, G));
 }
 
 /// Calculate the number of vertices of a Kronecker product of two graphs G, H

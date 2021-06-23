@@ -37,11 +37,11 @@ Graph create_Kronecker_graph(const Config& cfg,
                              RNGType& rng,
                              const Config& analysis_cfg = YAML::Node(YAML::NodeType::Map))
 {
-    // Create empty graph and add one vertex with a self-loop
+    // ... Create graph with one vertex and a self-edge ........................
     Graph K{1};
     Utils::add_self_edges(K);
 
-    // Data containers for graph analysis properties
+    // ... Data containers for graph analysis properties .......................
     double c_global = -1;
     double diam = -1;
     double mean_deg;
@@ -63,6 +63,7 @@ Graph create_Kronecker_graph(const Config& cfg,
     }
     catch (YAML::InvalidNode&){}
     catch (Utopia::KeyError&){}
+
     bool first_run = true;
 
     // Generate Graph
@@ -110,7 +111,7 @@ Graph create_KronGen_graph(const Config& cfg,
 
     std::uniform_real_distribution<double> distr(0, 1);
 
-    // ... Create an empty graph ...............................................
+    // ... Create graph with one vertex and a self-edge ........................
     Graph K{1};
     Utils::add_self_edges(K);
 
@@ -140,21 +141,31 @@ Graph create_KronGen_graph(const Config& cfg,
     catch(Utopia::KeyError&){}
 
     // ... Get analysis targets ................................................
-    bool calculate_c;
-    try {
-        calculate_c = (get_as<bool>("clustering_global", analysis_cfg)
-                    && get_as<bool>("enabled", analysis_cfg));
+    bool calculate_c = false;
+    if (c != -1) {
+        calculate_c = true;
     }
-    catch (YAML::InvalidNode&){}
-    catch (Utopia::KeyError&){}
+    else {
+        try {
+            calculate_c = (get_as<bool>("clustering_global", analysis_cfg)
+                        && get_as<bool>("enabled", analysis_cfg));
+        }
+        catch (YAML::InvalidNode&){}
+        catch (Utopia::KeyError&){}
+    }
 
-    bool calculate_diam;
-    try {
-        calculate_diam = (get_as<bool>("diameter", analysis_cfg)
-                    && get_as<bool>("enabled", analysis_cfg));
+    bool calculate_diam = false;
+    if (diameter != -1) {
+        calculate_diam = true;
     }
-    catch (YAML::InvalidNode&){}
-    catch (Utopia::KeyError&){}
+    else {
+        try {
+            calculate_diam = (get_as<bool>("diameter", analysis_cfg)
+                        && get_as<bool>("enabled", analysis_cfg));
+        }
+        catch (YAML::InvalidNode&){}
+        catch (Utopia::KeyError&){}
+    }
 
     // ... Create graphs when no properties are passed .........................
     if ((diameter == -1) and (c == -1)) {
@@ -179,7 +190,7 @@ Graph create_KronGen_graph(const Config& cfg,
 
         Clustering::create_clustering_graph(K, N, m, c, diameter, degree_distr,
                                             calculate_c, calculate_diam,
-                                            rng);
+                                            rng, distr);
     }
 
     Utils::remove_self_edges(K);
@@ -189,6 +200,7 @@ Graph create_KronGen_graph(const Config& cfg,
 
 }
 
+// .............................................................................
 /// Custom create_graph function
 template<typename Graph, typename RNGType>
 Graph create_graph(const Config& cfg,
