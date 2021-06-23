@@ -28,9 +28,10 @@ create_graph:
       model: ErdosRenyi
       <<: *defaults
     Graph2:
-      num_vertices: 30
-      mean_degree: 4
-      model: BarabasiAlbert
+      <<: *defaults
+    Graph3:
+      <<: *defaults
+    Graph4:
       <<: *defaults
 
 # Graph analysis

@@ -91,7 +91,7 @@ BOOST_FIXTURE_TEST_CASE(create_Kron_graph, Test_Graph)
         TestUtils::assert_no_parallel_self_edges(g0);
 
         if (is_complete) {
-            for (const auto& v : range<Utopia::IterateOver::vertices>(g0)) {
+            for (const auto& v : Utopia::range<Utopia::IterateOver::vertices>(g0)) {
                 double c = boost::clustering_coefficient(g0, v);
                 BOOST_TEST(c == 1);
             }

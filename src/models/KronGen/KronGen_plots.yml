@@ -93,7 +93,7 @@ nw_stats_sweep:
     set_scales:
       y: linear
 
-clustering_glob:
+clustering:
   based_on: sweep_stats
   select_and_combine:
     fields:
