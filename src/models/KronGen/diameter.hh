@@ -239,6 +239,7 @@ Graph create_second_Kronecker_factor(const double N,
 
             }
 
+            // Return the graph
             return H;
         }
     }

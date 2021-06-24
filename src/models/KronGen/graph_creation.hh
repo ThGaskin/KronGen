@@ -37,6 +37,9 @@ Graph create_Kronecker_graph(const Config& cfg,
                              RNGType& rng,
                              const Config& analysis_cfg = YAML::Node(YAML::NodeType::Map))
 {
+
+    std::uniform_real_distribution<double> distr(0, 1);
+
     // ... Create graph with one vertex and a self-edge ........................
     Graph K{1};
     Utils::add_self_edges(K);
@@ -84,7 +87,7 @@ Graph create_Kronecker_graph(const Config& cfg,
 
         Utils::add_self_edges(G);
 
-        K = Utils::Kronecker_product(K, G);
+        K = Utils::Kronecker_product(K, G, rng, distr);
     }
 
     // Remove self-loops
@@ -169,11 +172,12 @@ Graph create_KronGen_graph(const Config& cfg,
 
     // ... Create graphs when no properties are passed .........................
     if ((diameter == -1) and (c == -1)) {
-        if (degree_distr == "") {
-            K = Utopia::Graph::create_ErdosRenyi_graph<Graph>(N, m, false, false, rng);
-        }
-        else if (degree_distr == "scale-free") {
+
+        if (degree_distr == "scale-free") {
             K = Utopia::Graph::create_BarabasiAlbert_graph<Graph>(N, m, false, rng);
+        }
+        else {
+            K = Utopia::Graph::create_ErdosRenyi_graph<Graph>(N, m, false, false, rng);
         }
     }
 
