@@ -70,7 +70,7 @@ BOOST_FIXTURE_TEST_CASE(test_Kronecker_properties, Test_Graph)
 
           BOOST_TEST_CHECKPOINT("Generating Kronecker graph ... ");
           for (const auto& factor_map : test_cfg["Kronecker"]) {
-              auto g = GraphCreation::create_graph<Graph>(factor_map.second, *rng);
+              auto g = GraphCreation::create_graph<Graph>(factor_map.second, *rng, log);
 
               const auto model = get_as<std::string>("model", factor_map.second);
               const auto n_vertices = boost::num_vertices(g);

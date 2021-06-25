@@ -18,7 +18,7 @@ create_graph:
       p_rewire: !is-probability 0.2
 
   num_vertices: !is-positive-int 200
-  mean_degree: !is-positive-int 4
+  mean_degree: !is-positive 4
   model: ErdosRenyi
   <<: *defaults
   Kronecker:
@@ -28,10 +28,6 @@ create_graph:
       model: ErdosRenyi
       <<: *defaults
     Graph2:
-      <<: *defaults
-    Graph3:
-      <<: *defaults
-    Graph4:
       <<: *defaults
 
 # Graph analysis

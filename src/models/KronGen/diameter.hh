@@ -5,6 +5,7 @@
 #include <boost/graph/adjacency_matrix.hpp>
 #include <boost/graph/random.hpp>
 #include <boost/property_map/dynamic_property_map.hpp>
+#include <spdlog/spdlog.h>
 
 #include "aux_graphs.hh"
 #include "clustering.hh"
@@ -27,13 +28,17 @@ using namespace Utopia::Models::NetworkAnalyser;
   * \param m_G            The mean degree of the first factor
   * \param degree_distr   The target degree distribution
   * \param diameter       The target diameter
+  * \param log            The model logger
   */
-template<typename Graph>
+template<typename Graph, typename Logger>
 Graph create_first_Kronecker_factor(double& N_G,
                                     double& m_G,
                                     const std::string degree_distr,
-                                    const double diameter)
+                                    const double diameter,
+                                    const Logger& log)
 {
+    log->info("Assembling diameter component, first factor ... ");
+
     // Create an empty graph
     Graph G{};
 
@@ -43,12 +48,16 @@ Graph create_first_Kronecker_factor(double& N_G,
         N_G = 2*diameter;
         m_G = 2;
         G = Utopia::Graph::create_regular_graph<Graph>(N_G, m_G, false);
+
+        log->info("Result: cycle graph with {} vertices, mean degree {}.", N_G, m_G);
     }
     // For all others, create a chain of length diameter+1
     else {
         N_G = diameter + 1;
         m_G = Utils::mean_degree_chain_graph(N_G);
         G = AuxGraphs::create_chain_graph<Graph>(N_G);
+
+        log->info("Result: chain graph with {} vertices, mean degree {}.", N_G, m_G);
     }
 
     Utils::add_self_edges(G);
@@ -75,8 +84,9 @@ Graph create_first_Kronecker_factor(double& N_G,
   * \param discard_first_factor   Whether the first factor should be discarded
   * \param rng            The model rng
   * \param distr          Uniform distribution on (0, 1)
+  * \param log            The model logger
   */
-template<typename Graph, typename RNGType>
+template<typename Graph, typename RNGType, typename Logger>
 Graph create_second_Kronecker_factor(const double N,
                                      const double N_G,
                                      const double m,
@@ -91,10 +101,13 @@ Graph create_second_Kronecker_factor(const double N,
                                      double& diam_H,
                                      bool& discard_first_factor,
                                      RNGType& rng,
-                                     std::uniform_real_distribution<double>& distr)
+                                     std::uniform_real_distribution<double>& distr,
+                                     const Logger& log)
 {
     using namespace Utopia::Graph;
     using vertices_size_type = typename graph_traits<Graph>::vertices_size_type;
+
+    log->info("Assembling diameter component, second factor ... ");
 
     // Create an empty graph
     Graph H{};
@@ -117,13 +130,16 @@ Graph create_second_Kronecker_factor(const double N,
         if (degree_distr == "scale-free") {
             if (m_H < 3) {
                 discard_first_factor = true;
+                log->info("Mean degree {} too small; discarding.", m_H);
                 return H;
             }
             else {
+                log->info("Result: scale-free graph with {} vertices, mean degree {}", N_H, m_H);
                 H = create_BarabasiAlbert_graph<Graph>(N_H, m_H, false, rng);
             }
         }
         else {
+            log->info("Result: random graph with {} vertices, mean degree {}", N_H, m_H);
             H = create_ErdosRenyi_graph<Graph>(N_H, m_H, false, false, rng);
         }
 
@@ -139,6 +155,10 @@ Graph create_second_Kronecker_factor(const double N,
             const auto s = fourSweep<vertices_size_type>(H);
             diam_H = iFUB(s.first, s.second, 0, H);
         }
+        log->info("Second diameter component properties: {}{}{}",
+                  (calculate_c ? "c_H="+to_string(c_H) : ""),
+                  (calculate_c and calculate_diam ? ", " : ""),
+                  (calculate_diam ? "diam_H="+to_string(diam_H) : ""));
 
         Utils::add_self_edges(H);
 
@@ -147,10 +167,13 @@ Graph create_second_Kronecker_factor(const double N,
 
     // Second Kronecker factor has diameter larger than estimate
     else {
+        log->info("Diameter larger than estimate; attempting to further "
+                  "break down second component ... ");
         // For small mean degree, no further breaking down of the mean degree is
         // possible
         if (m_H <= 2){
             discard_first_factor = true;
+            log->info("Mean degree {} too small; discarding.", m_H);
             return H;
         }
 
@@ -173,6 +196,8 @@ Graph create_second_Kronecker_factor(const double N,
                       or (m_i < 3 and degree_distr == "scale-free")
                       or ((N_i <= 2 or m_i <= 2) and (diam_i > diameter)))
                     {
+                        log->info("Failed: N_i={}, m_i={}, diam_i={}; discarding.",
+                                   N_i, m_i, diam_i);
                         discard_first_factor = true;
                         return H;
                     }
@@ -199,6 +224,9 @@ Graph create_second_Kronecker_factor(const double N,
             }
 
             // If factors found, assemble H as Kronecker product of factors
+            log->info("Factorisation successful; created {} factors",
+                       factors.size());
+
             add_vertex(H);
             Utils::add_self_edges(H);
 
@@ -239,6 +267,14 @@ Graph create_second_Kronecker_factor(const double N,
 
             }
 
+            log->info("Done. Second diameter component properties: "
+                      "N_H={}, m_H={}{}{}{}{}.",
+                      N_H, m_H,
+                      (calculate_c or calculate_diam ? ", " : ""),
+                      (calculate_c ? "c_H="+to_string(c_H) : ""),
+                      (calculate_c and calculate_diam ? ", " : ""),
+                      (calculate_diam ? "diam_H="+to_string(diam_H) : ""));
+
             // Return the graph
             return H;
         }
@@ -256,8 +292,9 @@ Graph create_second_Kronecker_factor(const double N,
   * \param calculate_diam   Whether or not to calculate the diameter
   * \param rng              The model rng
   * \param distr            Uniform real distribution on (0, 1)
+  * \param log              The model logger
   */
-template<typename Graph, typename RNGType>
+template<typename Graph, typename RNGType, typename Logger>
 void create_diameter_graph (Graph& K,
                             double N,
                             double m,
@@ -267,13 +304,19 @@ void create_diameter_graph (Graph& K,
                             const bool calculate_c,
                             const bool calculate_diam,
                             RNGType& rng,
-                            std::uniform_real_distribution<double>& distr)
+                            std::uniform_real_distribution<double>& distr,
+                            const Logger& log)
 {
+    log->info("Assembling diameter component ... ");
+
     // Adjust N and m to c
-    Clustering::adjust_N_m_to_c(N, m, c);
+    log->info("Adjusting N ({}), and m ({}) to c = {} ...", N, m, c);
+    Clustering::adjust_N_m_to_c(N, m, c, log);
 
     // Extreme case: mean degree less than 3
     if (m <= 3) {
+        log->info("Mean degree < 3; returning star graph component with {} vertices, "
+                  " mean degree {}", N, m);
         K = AuxGraphs::create_star_graph<Graph>(N, m, diameter, rng);
         K[0].state.diameter = diameter;
         if (calculate_c) {
@@ -288,7 +331,8 @@ void create_diameter_graph (Graph& K,
     double N_G;
     double m_G;
     Graph G = create_first_Kronecker_factor<Graph>(N_G, m_G,
-                                                   degree_distr, diameter);
+                                                   degree_distr, diameter,
+                                                   log);
     const auto var_G = degree_statistics(G).second;
 
     //... Second Kronecker factor ..............................................
@@ -301,7 +345,7 @@ void create_diameter_graph (Graph& K,
                                                     calculate_c, calculate_diam,
                                                     c_H, m_H, var_H, diam_H,
                                                     discard_first_factor,
-                                                    rng, distr);
+                                                    rng, distr, log);
 
     // ... Create Kronecker graph and write properties .........................
     // Second factor successfully created
@@ -322,6 +366,9 @@ void create_diameter_graph (Graph& K,
 
     // If H is empty, revert to star graph, dropping first factor
     else {
+        log->info("Discarding first factor and reverting to star graph with "
+                  "N={}, m={}.", N, m);
+
         K = AuxGraphs::create_star_graph<Graph>(N, m, diameter, rng);
         K[0].state.mean_deg = m;
         K[0].state.var = degree_statistics(K).second;

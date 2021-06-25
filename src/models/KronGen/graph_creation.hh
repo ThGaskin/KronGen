@@ -5,6 +5,7 @@
 #include <boost/graph/adjacency_matrix.hpp>
 #include <boost/graph/random.hpp>
 #include <boost/property_map/dynamic_property_map.hpp>
+#include <spdlog/spdlog.h>
 
 #include "utopia/core/types.hh"
 #include "utopia/core/graph/iterator.hh"
@@ -32,12 +33,13 @@ using namespace Utopia::Models::NetworkAnalyser;
   * \param analysis_cfg   The analysis config, containing the list of parameters to
                           calculate
 */
-template<typename Graph, typename RNGType>
+template<typename Graph, typename RNGType, typename Logger>
 Graph create_Kronecker_graph(const Config& cfg,
                              RNGType& rng,
+                             const Logger& log,
                              const Config& analysis_cfg = YAML::Node(YAML::NodeType::Map))
 {
-
+    log->info("Creating Kronecker graph");
     std::uniform_real_distribution<double> distr(0, 1);
 
     // ... Create graph with one vertex and a self-edge ........................
@@ -106,12 +108,12 @@ Graph create_Kronecker_graph(const Config& cfg,
 }
 
 /// Creates a graph from a list of topological properties
-template<typename Graph, typename RNGType>
+template<typename Graph, typename RNGType, typename Logger>
 Graph create_KronGen_graph(const Config& cfg,
                            RNGType& rng,
+                           const Logger& log,
                            const Config& analysis_cfg = YAML::Node(YAML::NodeType::Map))
 {
-
     std::uniform_real_distribution<double> distr(0, 1);
 
     // ... Create graph with one vertex and a self-edge ........................
@@ -170,6 +172,13 @@ Graph create_KronGen_graph(const Config& cfg,
         catch (Utopia::KeyError&){}
     }
 
+    // ... Graph creation ......................................................
+    // Output info message with given properties
+    log->info("Assembling KronGen {} graph with {} vertices, mean degree m = {}"
+               "{}{} ...", degree_distr, N, m,
+               (diameter != -1 ? ", diameter = "+to_string(diameter) : ""),
+               (c != -1 ? ", clustering coefficient = "+to_string(c) : ""));
+
     // ... Create graphs when no properties are passed .........................
     if ((diameter == -1) and (c == -1)) {
 
@@ -182,11 +191,11 @@ Graph create_KronGen_graph(const Config& cfg,
     }
 
     // ... Create graph with given diameter ....................................
-    if (diameter > 0) {
+    else if (diameter > 0) {
 
         Diameter::create_diameter_graph(K, N, m, c, diameter, degree_distr,
                                         calculate_c, calculate_diam,
-                                        rng, distr);
+                                        rng, distr, log);
     }
 
     // ... Create graph with given clustering coefficient ......................
@@ -194,7 +203,7 @@ Graph create_KronGen_graph(const Config& cfg,
 
         Clustering::create_clustering_graph(K, N, m, c, diameter, degree_distr,
                                             calculate_c, calculate_diam,
-                                            rng, distr);
+                                            rng, distr, log);
     }
 
     Utils::remove_self_edges(K);
@@ -206,9 +215,10 @@ Graph create_KronGen_graph(const Config& cfg,
 
 // .............................................................................
 /// Custom create_graph function
-template<typename Graph, typename RNGType>
+template<typename Graph, typename RNGType, typename Logger>
 Graph create_graph(const Config& cfg,
                    RNGType& rng,
+                   const Logger& log,
                    bool includes_analysis_cfg = false)
 {
   // Get graph analysis config, if provided
@@ -229,11 +239,11 @@ Graph create_graph(const Config& cfg,
   const std::string model = get_as<std::string>("model", graph_cfg);
 
   if (model == "Kronecker") {
-      return create_Kronecker_graph<Graph>(graph_cfg, rng, nw_cfg);
+      return create_Kronecker_graph<Graph>(graph_cfg, rng, log, nw_cfg);
   }
 
   else if (model == "KronGen") {
-      return create_KronGen_graph<Graph>(graph_cfg, rng, nw_cfg);
+      return create_KronGen_graph<Graph>(graph_cfg, rng, log, nw_cfg);
   }
 
   else {

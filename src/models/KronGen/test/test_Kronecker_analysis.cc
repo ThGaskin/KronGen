@@ -5,6 +5,7 @@
 #include <boost/graph/adjacency_list.hpp>
 #include <boost/graph/adjacency_matrix.hpp>
 #include <boost/graph/clustering_coefficient.hpp>
+#include <spdlog/spdlog.h>
 
 #include <utopia/core/testtools.hh>
 #include <utopia/core/types.hh>
@@ -21,6 +22,7 @@ using namespace Utopia::Models::NetworkAnalyser;
 using namespace Utopia;
 
 // -- Types -------------------------------------------------------------------
+auto logger = Utopia::init_logger("root.KronGen", spdlog::level::info);
 
 struct Infrastructure : public BaseInfrastructure<> {
     Infrastructure() : BaseInfrastructure<>("test_Kronecker_analysis.yml") {};
@@ -58,7 +60,7 @@ BOOST_FIXTURE_TEST_CASE(test_Kronecker_analysis, Test_Graph)
 
       [&](auto test_cfg){
 
-          const G_vec_u g = create_graph<G_vec_u>(test_cfg, *rng, true);
+          const G_vec_u g = create_graph<G_vec_u>(test_cfg, *rng, logger, true);
 
           BOOST_TEST_CHECKPOINT("Kronecker graph generated");
 

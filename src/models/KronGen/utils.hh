@@ -1,8 +1,9 @@
 #ifndef UTOPIA_MODELS_KRONGEN_UTILS
 #define UTOPIA_MODELS_KRONGEN_UTILS
 
-#include <random>
 #include <algorithm>
+#include <random>
+#include <vector>
 
 #include <boost/graph/adjacency_list.hpp>
 #include <boost/graph/adjacency_matrix.hpp>

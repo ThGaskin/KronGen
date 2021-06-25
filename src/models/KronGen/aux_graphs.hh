@@ -92,28 +92,16 @@ Graph create_star_graph(const std::size_t N,
         add_edge(center, i, g);
     }
 
-    auto w = random_vertex(g, rng);
-    while (w == center) {
-        w = random_vertex(g, rng);
-    }
-    auto s = random_vertex(g, rng);
-    while ((s == center) or (s == w)) {
-        s = random_vertex(g, rng);
-    }
-    add_edge(s, w, g);
-
-    // At this point, the graph has diameter 2 and mean degree 2
-    if (k > 2) {
-        auto target = k * N;
-        while (2*num_edges(g) < target) {
+    // At this point, the graph has diameter 2 and mean degree 2*(N-2)/N
+    auto target = k * N;
+    while (2*num_edges(g) < target) {
+        auto w = random_vertex(g, rng);
+        auto v = random_vertex(g, rng);
+        while ((w == v) or (edge(v, w, g).second)){
             w = random_vertex(g, rng);
-            auto v = random_vertex(g, rng);
-            while ((w == v) or (edge(v, w, g).second)){
-                w = random_vertex(g, rng);
-                v = random_vertex(g, rng);
-            }
-            add_edge(w, v, g);
+            v = random_vertex(g, rng);
         }
+        add_edge(w, v, g);
     }
 
     // The graph now has diameter 2 and mean degree k

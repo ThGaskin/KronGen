@@ -5,6 +5,8 @@
 #include <boost/graph/adjacency_list.hpp>
 #include <boost/graph/adjacency_matrix.hpp>
 #include <boost/graph/clustering_coefficient.hpp>
+#include <spdlog/spdlog.h>
+
 
 #include <utopia/core/graph.hh>
 #include "utopia/core/graph/iterator.hh"
@@ -19,6 +21,8 @@ using namespace Utopia::Models::KronGen;
 
 
 // -- Types -------------------------------------------------------------------
+// Initialise the core logger
+auto logger = Utopia::init_logger("root.KronGen", spdlog::level::info);
 
 struct Infrastructure : public BaseInfrastructure<> {
     Infrastructure() : BaseInfrastructure<>("test_Kronecker_creation.yml") {};
@@ -56,7 +60,7 @@ BOOST_FIXTURE_TEST_CASE(create_Kron_graph, Test_Graph)
 
       [&](auto test_cfg){
 
-        const auto g0 = GraphCreation::create_Kronecker_graph<Graph>(test_cfg, *rng);
+        const auto g0 = GraphCreation::create_Kronecker_graph<Graph>(test_cfg, *rng, logger);
         std::size_t num_vertices = 1;
         double mean_degree = 1;
         bool is_complete = true;
