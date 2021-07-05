@@ -105,7 +105,6 @@ Graph create_second_Kronecker_factor(const double N,
                                      const Logger& log)
 {
     using namespace Utopia::Graph;
-    using vertices_size_type = typename graph_traits<Graph>::vertices_size_type;
 
     log->info("Assembling diameter component, second factor ... ");
 
@@ -152,8 +151,7 @@ Graph create_second_Kronecker_factor(const double N,
         }
 
         if (calculate_diam) {
-            const auto s = fourSweep<vertices_size_type>(H);
-            diam_H = iFUB(s.first, s.second, 0, H);
+            diam_H = Utopia::Models::NetworkAnalyser::diameter(H);
         }
         log->info("Second diameter component properties: {}{}{}",
                   (calculate_c ? "c_H="+to_string(c_H) : ""),
@@ -256,9 +254,7 @@ Graph create_second_Kronecker_factor(const double N,
                     }
                 }
                 if (calculate_diam) {
-                    const auto s = fourSweep<vertices_size_type>(t);
-                    const double diam_t = iFUB(s.first, s.second, 0, t);
-                    diam_H = std::max(diam_H, diam_t);
+                    diam_H = std::max(diam_H, Utopia::Models::NetworkAnalyser::diameter(t));
                 }
 
                 Utils::add_self_edges(t);
@@ -309,10 +305,6 @@ void create_diameter_graph (Graph& K,
 {
     log->info("Assembling diameter component ... ");
 
-    // Adjust N and m to c
-    log->info("Adjusting N ({}), and m ({}) to c = {} ...", N, m, c);
-    Clustering::adjust_N_m_to_c(N, m, c, log);
-
     // Extreme case: mean degree less than 3
     if (m <= 3) {
         log->info("Mean degree < 3; returning star graph component with {} vertices, "
@@ -335,17 +327,30 @@ void create_diameter_graph (Graph& K,
                                                    log);
     const auto var_G = degree_statistics(G).second;
 
+    // If clustering coefficient is specificed: return only first factor.
+    if (c != -1) {
+        K = G;
+        K[0].state.mean_deg = m_G;
+        K[0].state.var = var_G;
+        K[0].state.clustering_global = c_G;
+        K[0].state.diameter = diameter;
+
+        log->info("Done: returning first diameter component.");
+
+        return;
+    }
+
     //... Second Kronecker factor ..............................................
-    double c_H = -1;
-    double m_H = 0, var_H = 0, diam_H = 0;
+    Graph H{};
+    double c_H = -1, m_H = 0, var_H = 0, diam_H = 0;
     bool discard_first_factor = false;
 
-    Graph H = create_second_Kronecker_factor<Graph>(N, N_G, m, m_G,
-                                                    degree_distr, diameter,
-                                                    calculate_c, calculate_diam,
-                                                    c_H, m_H, var_H, diam_H,
-                                                    discard_first_factor,
-                                                    rng, distr, log);
+    H = create_second_Kronecker_factor<Graph>(N, N_G, m, m_G,
+                                                  degree_distr, diameter,
+                                                  calculate_c, calculate_diam,
+                                                  c_H, m_H, var_H, diam_H,
+                                                  discard_first_factor,
+                                                  rng, distr, log);
 
     // ... Create Kronecker graph and write properties .........................
     // Second factor successfully created

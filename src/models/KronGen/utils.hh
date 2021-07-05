@@ -154,7 +154,7 @@ double Kronecker_clustering (const double c_G,
   * \param c_H      The clustering coefficient of the other Kronecker factor H
   * \param c        The target clustering coefficient
   * \param h        The mean degree of graph H
-  * \param h        The degree distribution variance of H
+  * \param v        The degree distribution variance of H
 */
 double get_mean_deg_c(const double c_H,
                       const double c,
@@ -200,7 +200,6 @@ void calculate_properties(Graph& h,
                           double& variance)
 {
     using namespace Utopia::Models::NetworkAnalyser;
-    using vertices_size_type = typename boost::graph_traits<Graph>::vertices_size_type;
 
     // Calculate the clustering coefficient
     if (calculate_c) {
@@ -229,9 +228,7 @@ void calculate_properties(Graph& h,
 
     // Calculate the diameter
     if (calculate_diam) {
-        const auto starting_point = fourSweep<vertices_size_type>(h);
-        const double d = iFUB(starting_point.first, starting_point.second, 0, h);
-        diam = max(diam, d);
+        diam = max(diam, diameter(h));
     }
 }
 
@@ -260,11 +257,14 @@ void remove_self_edges (Graph& g) {
 vector_pt N_factors (const size_t N)
 {
     vector<bool> candidates(round(static_cast<double>(N)/2.+2), true);
+    candidates[2]=false;
     vector_pt res;
     for (int i = 2; i < round(static_cast<double>(N)/2+1); ++i) {
         if (not (N % i) && (candidates[i]==true)) {
-            res.push_back({i, N/i});
-            candidates[N/i] = false;
+            if (candidates[N/i] == true) {
+                res.push_back({i, N/i});
+                candidates[N/i] = false;
+            }
         }
     }
     return res;
@@ -272,17 +272,16 @@ vector_pt N_factors (const size_t N)
 
 /// Return a list of possible vertex number factor pairs producing a desired
 /// product, or the closest possible factor pairs
-vector_pt closest_N_factors (const size_t N)
+vector_pt closest_N_factors (const size_t N, const bool next = true)
 {
     auto res = N_factors(N);
-    if (res.empty()) {
+    if (res.empty() and next) {
         res = closest_N_factors(N+1);
         if (N>4) {
-            auto res2 = closest_N_factors(N-1);
+            auto res2 = closest_N_factors(N-1, res.empty());
             res.insert(res.end(), res2.begin(), res2.end());
         }
     }
-
     return res;
 }
 
@@ -291,7 +290,7 @@ vector_pt mean_deg_factors (const size_t m)
 {
     vector<bool> candidates(round(static_cast<double>(m)/2.+2), true);
     vector_pt res;
-    for (int i = 1; i < round(static_cast<double>(m)/2); ++i) {
+    for (int i = 2; i < round(static_cast<double>(m)/2); ++i) {
         if (not ((m+1) % (i+1)) && (candidates[i]==true)) {
             auto k = ((m+1)/(i+1)-1);
             res.push_back({i, k});
@@ -379,5 +378,17 @@ double mean_degree_chain_graph (const double N) {
     return (2*(N-1)/N);
 }
 
+
+double rel_err(const double x, const double y) {
+    return abs(1.-x/y);
+}
+
+double err_func(const std::vector<double> err_terms) {
+    double err = 0;
+    for (const auto& x : err_terms) {
+        err += pow(x, 2);
+    }
+    return sqrt(err);
+}
 }
 #endif

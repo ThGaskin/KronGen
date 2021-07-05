@@ -24,7 +24,7 @@ def network_stats(dm: DataManager, *,
     """Plots a sheet with the network topology stats"""
 
     data = uni['data']['KronGen']['NetworkAnalyser']['graph_data']
-    plots = list(data.keys())[2:] # discard vertices and edges
+    plots = ['num_vertices']+list(data.keys())[2:] # discard vertices and edges
     n_plots = len(plots)
 
     # .. Setup the figure with two columns and as many rows as necessary .......
@@ -50,19 +50,39 @@ def network_stats(dm: DataManager, *,
     # .. Plot data histogram on each axis ......................................
     for i in range(n_plots):
         hlpr.select_axis(0, i)
-        data_to_plot = np.asarray(data[plots[i]].data)[0]
+        hlpr.ax.set_title(titles[plots[i]])
+        if (plots[i] == 'num_vertices'):
+            data_to_plot = np.asarray([len(data['_vertices'].data) for _ in range(len(data['_vertices'].data))])
+        else:
+            data_to_plot = np.asarray(data[plots[i]].data)[0]
         hist = hlpr.ax.hist(data_to_plot, **plot_kwargs)
         if (plots[i] == 'diameter' or plots[i]=="distance_max"):
             loc = np.max(data_to_plot)
             txt = f"diameter: {np.around(loc, 3)}"
-            hlpr.ax.text(1.01*loc, 0.95*np.max(hist[0]), txt, color="cornflowerblue")
+            hlpr.ax.text(0.75, 0.92, txt, color="cornflowerblue", transform=hlpr.ax.transAxes, backgroundcolor=(1, 1, 1, 0.8))
+        elif (plots[i]=='core_number'):
+            loc = np.mean(data_to_plot)
+            txt = (f"max: {np.around(np.max(data_to_plot), 3)}"
+                  +"\n"
+                  +f"min: {np.around(np.min(data_to_plot), 3)}")
+            hlpr.ax.text(0.80, 0.88, txt, color="cornflowerblue", transform=hlpr.ax.transAxes, backgroundcolor=(1, 1, 1, 0.8))
+        elif (plots[i] == 'num_vertices'):
+            loc = np.mean(data_to_plot)
+            txt = (f"{loc} vertices")
+            hlpr.ax.text(0.75, 0.92
+            , txt, color="cornflowerblue", transform=hlpr.ax.transAxes, backgroundcolor=(1, 1, 1, 0.8))
         else:
             loc = np.mean(data_to_plot)
-            txt = f"mean: {np.around(loc, 3)}"
-            hlpr.ax.text(1.01*loc, np.max(hist[0]), txt, color="cornflowerblue")
+            txt = (f"mean: {np.around(loc, 3)}"
+                  +r"$\pm$"+f"{np.around(np.std(data_to_plot), 3)}"
+                  +"\n"
+                  +f"max: {np.around(np.max(data_to_plot), 3)}"
+                  +"\n"
+                  +f"min: {np.around(np.min(data_to_plot), 3)}")
+
+            hlpr.ax.text(0.65, 0.85, txt, color="cornflowerblue", transform=hlpr.ax.transAxes, backgroundcolor=(1, 1, 1, 0.8))
             hlpr.ax.axvline(loc, color="cornflowerblue")
-        if (plots[i] == 'degree'):
-            hlpr.ax.set_xscale('log')
-            hlpr.ax.set_yscale('log')
-        hlpr.ax.set_title(titles[plots[i]])
+        #if (plots[i] == 'degree'):
+            #hlpr.ax.set_xscale('log')
+            #hlpr.ax.set_yscale('log')
         #hlpr.ax.set_yscale('log')

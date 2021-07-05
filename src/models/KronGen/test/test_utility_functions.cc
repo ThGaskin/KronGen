@@ -20,7 +20,7 @@ using namespace Utopia;
 
 BOOST_AUTO_TEST_CASE (test_N_factors)
 {
-    std::vector<std::size_t> N = {4, 10, 14, 20, 22, 25, 30, 35, 40, 100};
+    std::vector<std::size_t> N = {4, 10, 14, 20, 22, 25, 30, 35, 40, 100, 167};
     std::vector<std::size_t> primes = {0, 1, 2, 3, 5, 7, 11, 17, 19};
 
     for (const auto& n : N) {

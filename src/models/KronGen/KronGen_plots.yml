@@ -18,7 +18,7 @@ graph:
                                       # such that edge lengths are reduced.
       k: 1                        # Tweaking the spring model by adjusting
                                       # the optimal edge length (k) and the
-      iterations: 100               # maximum number of iterations done.
+      iterations: 5               # maximum number of iterations done.
     nodes:
       node_color:
        from_property: degree     # Map the 'some_state' data to the color
@@ -141,7 +141,7 @@ mean_degree:
           - getitem: [!dag_prev , mean_degree]
           - xr.DataArray: [!dag_prev ]
 
-      diameter:
+      clustering_coeff:
         path: cfg/NetworkAnalyser
 
       mean_degree:
@@ -165,7 +165,7 @@ mean_degree:
           target_m: !dag_tag m_theoretical
       tag: data
 
-  x: diameter
+  x: clustering_coeff
   #hue: !dag_tag data
 
   helpers:
@@ -197,7 +197,7 @@ num_vertices:
           - getitem: [!dag_prev , num_vertices]
           - xr.DataArray: [!dag_prev ]
 
-      diameter:
+      clusterint_coeff:
         path: cfg/NetworkAnalyser
 
       N_real:
@@ -216,7 +216,7 @@ num_vertices:
           actual_N: !dag_tag N_real
           target_N: !dag_tag N_theoretical
       tag: data
-  x: diameter
+  x: clustering_coeff
   #hue: !dag_tag data
 
   helpers:
@@ -225,8 +225,8 @@ num_vertices:
     set_labels:
       x: diameter (in)
       y: number of vertices
-    set_limits:
-      y: [500, 1500]
+    #set_limits:
+      #y: [500, 1500]
   target_N:
     color: black
     linestyle: dashed
@@ -255,8 +255,8 @@ diameter:
     set_title:
       title: Network diameter
     set_labels:
-      x: sweep parameter
-      y: diameter
+      x: diameter (in)
+      y: diameter (out)
 
 diameter_coeff:
   based_on: sweep_stats

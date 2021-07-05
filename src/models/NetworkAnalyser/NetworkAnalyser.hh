@@ -285,8 +285,7 @@ class NetworkAnalyser : public Model<NetworkAnalyser<GraphType>, ModelTypes>
             }
             else {
                 this->_log->info("Computing the diameter ... ");
-                auto starting_point = fourSweep<vertices_size_type>(_g);
-                 _diam = iFUB(starting_point.first, starting_point.second, 0, _g);
+                 _diam = diameter(_g);
             }
         }
 
