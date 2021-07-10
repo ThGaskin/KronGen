@@ -253,7 +253,7 @@ void remove_self_edges (Graph& g) {
 
 
 /// Return a list of possible vertex number factor pairs producing
-// a desired product
+// a desired product. Does not include (1, N) or (2, N/2)
 vector_pt N_factors (const size_t N)
 {
     vector<bool> candidates(round(static_cast<double>(N)/2.+2), true);
@@ -272,15 +272,18 @@ vector_pt N_factors (const size_t N)
 
 /// Return a list of possible vertex number factor pairs producing a desired
 /// product, or the closest possible factor pairs
-vector_pt closest_N_factors (const size_t N, const bool next = true)
+vector_pt closest_N_factors (const size_t N)
 {
     auto res = N_factors(N);
-    if (res.empty() and next) {
-        res = closest_N_factors(N+1);
-        if (N>4) {
-            const auto res2 = closest_N_factors(N-1, res.empty());
+    size_t i = 1;
+    while (res.empty()) {
+        auto res2 = N_factors(N+i);
+        res.insert(res.end(), res2.begin(), res2.end());
+        if (N > i+2){
+            res2=N_factors(N-i);
             res.insert(res.end(), res2.begin(), res2.end());
         }
+        ++i;
     }
     return res;
 }
@@ -290,27 +293,34 @@ vector_pt mean_deg_factors (const size_t m)
 {
     vector<bool> candidates(round(static_cast<double>(m)/2.+2), true);
     vector_pt res;
+    candidates[1]=false;
     for (int i = 2; i < round(static_cast<double>(m)/2); ++i) {
         if (not ((m+1) % (i+1)) && (candidates[i]==true)) {
             auto k = ((m+1)/(i+1)-1);
-            res.push_back({i, k});
-            candidates[k] = false;
+            if (candidates[k] == true) {
+                res.push_back({i, k});
+                candidates[k] = false;
+            }
         }
     }
+    
     return res;
 }
 
 /// Return a list of possible mean degree number factor pairs producing a desired
 /// product, or the closest possible factor pairs
-vector_pt closest_mean_deg_factors (const size_t m, const bool next = true)
+vector_pt closest_mean_deg_factors (const size_t m)
 {
     auto res = mean_deg_factors(m);
-    if (res.empty() and next) {
-        res = closest_mean_deg_factors(m+1);
-        if (m>3) {
-            const auto res2 = closest_mean_deg_factors(m-1, res.empty());
+    size_t i = 1;
+    while (res.empty()) {
+        auto res2 = mean_deg_factors(m+i);
+        res.insert(res.end(), res2.begin(), res2.end());
+        if (m > i+3){
+            res2=mean_deg_factors(m-i);
             res.insert(res.end(), res2.begin(), res2.end());
         }
+        ++i;
     }
 
     return res;
