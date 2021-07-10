@@ -7,13 +7,13 @@ add_model_tests(# Use consistent capitalization for the model name!
                 # will become a test target with the same name.
                 SOURCES
                     "test_Kronecker_analysis.cc"
-                    "test_aux_graphs.cc"
-                    "test_Kronecker_creation.cc"
-                    "test_Kronecker_properties.cc"
-                    "test_utility_functions.cc"
+                    #"test_aux_graphs.cc"
+                    #"test_Kronecker_creation.cc"
+                    #"test_Kronecker_properties.cc"
+                    #"test_utility_functions.cc"
                 # Optional: Files to be copied to the build directory
                 AUX_FILES
                     "test_Kronecker_analysis.yml"
-                    "test_Kronecker_creation.yml"
-                    "test_Kronecker_properties.yml"
+                    #"test_Kronecker_creation.yml"
+                    #"test_Kronecker_properties.yml"
                 )
