@@ -113,7 +113,7 @@ void create_clustering_graph(Graph& K,
     // Component graphs & properties
     Graph G{}, H{};
     double N_G=N_target, N_H=1, m_G=m_target, m_H=0, var_G, var_H=0;
-    double c_K, c_G, c_H, diam_G=-1, diam_H;
+    double c_K, c_G, c_H=1, diam_G=-1, diam_H;
 
     // ... Base graph creation .................................................
     // Base graph is the graph generated using the target values for N
@@ -161,7 +161,7 @@ void create_clustering_graph(Graph& K,
     // If the base case is insufficent: grid search over N_fac, m_fac
 
     // Whether second component H has clustering coefficient 0
-    bool zero_c;
+    bool zero_c = false;
 
     if (error > tolerance) {
         // Temporary graph and properties
