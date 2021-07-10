@@ -251,7 +251,7 @@ test:model_defaults:
     - $ENTER_UTOPIA_ENV
 
     # Run each model via the CLI, testing default model and plots configuration
-    - utopia run KronGen src/models/KronGen/run_cfg.yml --debug --no-plot
+    - utopia run KronGen src/models/KronGen/run_cfg.yml --debug
 
 
 

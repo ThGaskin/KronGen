@@ -9,9 +9,9 @@ from utopya.plotting import is_plot_func, PlotHelper, UniversePlotCreator
 
 from .tools import titles
 
-matplotlib.rcParams['mathtext.fontset']='stix'
-matplotlib.rcParams['font.family']='serif'
-rc('text', usetex=True)
+# matplotlib.rcParams['mathtext.fontset']='stix'
+# matplotlib.rcParams['font.family']='serif'
+# rc('text', usetex=True)
 
 
 # -----------------------------------------------------------------------------
