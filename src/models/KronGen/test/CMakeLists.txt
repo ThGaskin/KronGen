@@ -7,7 +7,7 @@ add_model_tests(# Use consistent capitalization for the model name!
                 # will become a test target with the same name.
                 SOURCES
                     "test_Kronecker_analysis.cc"
-                    #"test_aux_graphs.cc"
+                    "test_aux_graphs.cc"
                     #"test_Kronecker_creation.cc"
                     "test_Kronecker_properties.cc"
                     "test_utility_functions.cc"
