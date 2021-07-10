@@ -292,8 +292,8 @@ Graph create_second_Kronecker_factor(const double N,
   */
 template<typename Graph, typename RNGType, typename Logger>
 void create_diameter_graph (Graph& K,
-                            double N,
-                            double m,
+                            const double N,
+                            const double m,
                             const double c,
                             const double diameter,
                             const std::string degree_distr,

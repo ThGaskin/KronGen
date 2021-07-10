@@ -278,7 +278,7 @@ vector_pt closest_N_factors (const size_t N, const bool next = true)
     if (res.empty() and next) {
         res = closest_N_factors(N+1);
         if (N>4) {
-            auto res2 = closest_N_factors(N-1, res.empty());
+            const auto res2 = closest_N_factors(N-1, res.empty());
             res.insert(res.end(), res2.begin(), res2.end());
         }
     }
@@ -297,19 +297,18 @@ vector_pt mean_deg_factors (const size_t m)
             candidates[k] = false;
         }
     }
-
     return res;
 }
 
 /// Return a list of possible mean degree number factor pairs producing a desired
 /// product, or the closest possible factor pairs
-vector_pt closest_mean_deg_factors (const size_t m)
+vector_pt closest_mean_deg_factors (const size_t m, const bool next = true)
 {
     auto res = mean_deg_factors(m);
-    if (res.empty()) {
+    if (res.empty() and next) {
         res = closest_mean_deg_factors(m+1);
         if (m>3) {
-            auto res2 = closest_mean_deg_factors(m-1);
+            const auto res2 = closest_mean_deg_factors(m-1, res.empty());
             res.insert(res.end(), res2.begin(), res2.end());
         }
     }
@@ -353,6 +352,7 @@ pair_pt get_factors_N_m (const size_t N,
 */
 // To do: test me
 // To do: extreme cases
+// To do factor of 1.6?
 double diameter_estimation (const double N, const double m) {
     if (m == 0) {
         return -1;
@@ -375,20 +375,9 @@ double diameter_estimation (const double N, const double m) {
   * \return m   The mean degree of the graph
 */
 double mean_degree_chain_graph (const double N) {
+
     return (2*(N-1)/N);
 }
 
-
-double rel_err(const double x, const double y) {
-    return abs(1.-x/y);
-}
-
-double err_func(const std::vector<double> err_terms) {
-    double err = 0;
-    for (const auto& x : err_terms) {
-        err += pow(x, 2);
-    }
-    return sqrt(err);
-}
 }
 #endif

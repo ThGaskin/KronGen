@@ -30,6 +30,7 @@ using namespace Utopia::Models::NetworkAnalyser;
 /**
   * \param cfg            A list of graphs to Kronecker together
   * \param rng            The model rng
+  * \param log            The model logger
   * \param analysis_cfg   The analysis config, containing the list of parameters to
                           calculate
 */
@@ -105,9 +106,17 @@ Graph create_Kronecker_graph(const Config& cfg,
 
     // Return the graph
     return K;
+
 }
 
 /// Creates a graph from a list of topological properties
+/**
+  * \param cfg            A list of graphs to Kronecker together
+  * \param rng            The model rng
+  * \param log            The model logger
+  * \param analysis_cfg   The analysis config, containing the list of parameters to
+                          calculate
+*/
 template<typename Graph, typename RNGType, typename Logger>
 Graph create_KronGen_graph(const Config& cfg,
                            RNGType& rng,
@@ -115,10 +124,6 @@ Graph create_KronGen_graph(const Config& cfg,
                            const Config& analysis_cfg = YAML::Node(YAML::NodeType::Map))
 {
     std::uniform_real_distribution<double> distr(0, 1);
-
-    // ... Create graph with one vertex and a self-edge ........................
-    Graph K{1};
-    Utils::add_self_edges(K);
 
     // ... Get topological properties ..........................................
     double N = get_as<double>("num_vertices", cfg);
@@ -176,22 +181,25 @@ Graph create_KronGen_graph(const Config& cfg,
     // Output info message with given properties
     log->info("Assembling KronGen {} graph with {} vertices, mean degree m = {}"
                "{}{} ...", degree_distr, N, m,
-               (diameter != -1 ? ", diameter = "+to_string(diameter) : ""),
-               (c != -1 ? ", clustering coefficient = "+to_string(c) : ""));
+               (c != -1 ? ", clustering coefficient = "+to_string(c) : ""),
+               (diameter != -1 ? ", diameter = "+to_string(diameter) : ""));
 
     // ... Create graphs when no properties are passed .........................
     if ((diameter == -1) and (c == -1)) {
 
         if (degree_distr == "scale-free") {
-            K = Utopia::Graph::create_BarabasiAlbert_graph<Graph>(N, m, false, rng);
+            return Utopia::Graph::create_BarabasiAlbert_graph<Graph>(N, m, false, rng);
         }
         else {
-            K = Utopia::Graph::create_ErdosRenyi_graph<Graph>(N, m, false, false, rng);
+            return Utopia::Graph::create_ErdosRenyi_graph<Graph>(N, m, false, false, rng);
         }
     }
 
     // ... Create graph with given diameter ....................................
-    else if (diameter > 0) {
+    Graph K{1};
+    Utils::add_self_edges(K);
+
+    if (diameter > 0) {
 
         Diameter::create_diameter_graph(K, N, m, c, diameter, degree_distr,
                                         calculate_c, calculate_diam,
@@ -206,6 +214,8 @@ Graph create_KronGen_graph(const Config& cfg,
                                             rng, distr, log);
     }
 
+    // .........................................................................
+
     Utils::remove_self_edges(K);
 
     // Return the graph
@@ -214,41 +224,52 @@ Graph create_KronGen_graph(const Config& cfg,
 }
 
 // .............................................................................
+
 /// Custom create_graph function
+/**
+  * \param cfg            Graph config
+  * \param rng            The model rng
+  * \param log            The model logger
+  * \param analysis_cfg   The analysis config, containing the list of parameters to
+                          calculate
+*/
 template<typename Graph, typename RNGType, typename Logger>
 Graph create_graph(const Config& cfg,
                    RNGType& rng,
                    const Logger& log,
                    bool includes_analysis_cfg = false)
 {
-  // Get graph analysis config, if provided
-  Config nw_cfg = YAML::Node(YAML::NodeType::Map);
-  try {
-      nw_cfg = get_as<Config>("graph_analysis", cfg["NetworkAnalyser"]);
-      includes_analysis_cfg = true;
-  }
-  catch (YAML::InvalidNode&){}
-  catch (Utopia::KeyError&){}
 
-  // Get graph creation config
-  const Config graph_cfg = includes_analysis_cfg
-      ? get_as<Config>("create_graph", cfg)
-      : cfg;
+    // Get graph analysis config, if provided
+    Config nw_cfg = YAML::Node(YAML::NodeType::Map);
+    try {
+        nw_cfg = get_as<Config>("graph_analysis", cfg["NetworkAnalyser"]);
+        includes_analysis_cfg = true;
+    }
+    catch (YAML::InvalidNode&){}
+    catch (Utopia::KeyError&){}
 
-  // Get the graph generating model
-  const std::string model = get_as<std::string>("model", graph_cfg);
+    // Get graph creation config
+    const Config graph_cfg = includes_analysis_cfg
+        ? get_as<Config>("create_graph", cfg)
+        : cfg;
 
-  if (model == "Kronecker") {
-      return create_Kronecker_graph<Graph>(graph_cfg, rng, log, nw_cfg);
-  }
+    // Get the graph generating model
+    const std::string model = get_as<std::string>("model", graph_cfg);
 
-  else if (model == "KronGen") {
-      return create_KronGen_graph<Graph>(graph_cfg, rng, log, nw_cfg);
-  }
+    if (model == "Kronecker") {
+        return create_Kronecker_graph<Graph>(graph_cfg, rng, log, nw_cfg);
+    }
 
-  else {
-      return AuxGraphs::create_graph<Graph>(graph_cfg, rng);
-  }
+    else if (model == "KronGen") {
+        return create_KronGen_graph<Graph>(graph_cfg, rng, log, nw_cfg);
+    }
+
+    else {
+        return AuxGraphs::create_graph<Graph>(graph_cfg, rng);
+    }
+
 }
+
 }
 #endif
