@@ -13,12 +13,12 @@ FROM ${BASE_IMAGE}
 RUN brew update && brew install hello
 
 # Install Utopia framework dependencies and some additional dependencies
-RUN brew install --display-times gcc llvm pkg-config cmake python@3.9
+RUN brew install --display-times gcc@11 llvm pkg-config cmake python@3.9
 RUN brew install --display-times armadillo boost hdf5 fmt spdlog yaml-cpp
 # RUN brew install --display-times ffmpeg graphviz doxygen fftw texlive
 
 # Make sure the correct gcc and Python are linked
-RUN brew link gcc
+RUN brew link gcc@11 --force
 RUN brew link python@3.9
 
 # .. Set up Utopia ............................................................
@@ -35,7 +35,7 @@ RUN    git clone ${UTOPIA_CLONE_URL} \
 
 WORKDIR /home/linuxbrew/utopia/utopia/build
 
-ENV CC=gcc CXX=g++
+ENV CC=gcc-11 CXX=g++-11
 RUN    cmake -DCMAKE_BUILD_TYPE=Release -DHDF5_ROOT=$(brew --prefix hdf5) .. \
     && make dummy
 
@@ -47,4 +47,3 @@ RUN    cmake -DCMAKE_BUILD_TYPE=Release -DHDF5_ROOT=$(brew --prefix hdf5) .. \
 WORKDIR /home/linuxbrew
 ENTRYPOINT [ "/home/linuxbrew/utopia/utopia/build/run-in-utopia-env", \
              "/bin/bash" ]
-
