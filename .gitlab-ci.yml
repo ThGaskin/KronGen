@@ -169,7 +169,7 @@ build:all: &build
   script:
     - cd $CI_PROJECT_DIR/build
     - make $MAKE_FLAGS_BUILD KronGen
-    - make $MAKE_FLAGS_BUILD build_tests_model_KronGen
+    # - make $MAKE_FLAGS_BUILD build_tests_model_KronGen
 
 build:debug: &build_debug
   <<: *build
