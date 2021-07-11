@@ -164,6 +164,7 @@ void create_clustering_graph(Graph& K,
     bool zero_c = false;
 
     if (error > tolerance) {
+        log->debug("Commencing grid search ...");
         // Temporary graph and properties
         Graph T{};
         double m_T, c_T, diam_T=-1, var_T;
@@ -290,8 +291,17 @@ void create_clustering_graph(Graph& K,
             }
             if (error < tolerance) {break;}
         }
-        // ... End of grid search ..............................................
-        log->info("Grid search complete. Generating graph G ...");
+
+        log->debug("Grid search complete.");
+    }
+
+    // If base graph is sufficient: no need to regenerate the base graph
+    if (N_H == 1) {
+        log->info("Base graph G is sufficient");
+    }
+
+    else {
+        log->info("Generating graph G ...");
 
         // Generate the components G and H based on the values obtained from the
         // grid search
@@ -303,62 +313,66 @@ void create_clustering_graph(Graph& K,
             G = Utopia::Graph::create_ErdosRenyi_graph<Graph>(N_G, m_G,
                                                               false, false, rng);
         }
-        Utils::add_self_edges(G);
-
         log->info("Done. Generating graph H ...");
+    }
 
-        // If the grid search resulted in no improvement over the base case:
-        // no Kronecker product
-        if (N_G == N_target or m_G == m_target) {
-            H = Graph{1};
-        }
+    Utils::add_self_edges(G);
 
-        // H is a zero-clustering graph
-        else if (zero_c) {
-            if (N_H >= 2.*m_H) {
-                // To do: Adapt this properly to m
-                if (static_cast<int>(N_H) % 2) {
-                    ++N_H;
-                }
-                H = AuxGraphs::create_zero_c_graph<Graph>(N_H, m_H);
+
+    if (N_H == 1) {
+        H = Graph{1};
+    }
+
+    // H is a zero-clustering graph
+    else if (zero_c) {
+        if (N_H >= 2.*m_H) {
+            // To do: Adapt this properly to m
+            if (static_cast<int>(N_H) % 2) {
+                ++N_H;
             }
-            else {
-                if (static_cast<int>(m_H) % 2) {
-                  ++m_H;
-                }
-                H = Utopia::Graph::create_regular_graph<Graph>(N_H, m_H, false);
-            }
+            H = AuxGraphs::create_zero_c_graph<Graph>(N_H, m_H);
         }
-
-        // H is a complete graph
         else {
-            H = Utopia::Graph::create_complete_graph<Graph>(N_H);
-        }
-
-        Utils::add_self_edges(H);
-
-        // Calculate properties
-        if (diameter > 0 or calculate_diam) {
-            diam_G = std::max(diameter, Utopia::Models::NetworkAnalyser::diameter(G));
-            diam_H = Utopia::Models::NetworkAnalyser::diameter(H);
-        }
-
-        log->info("Done: Results: N_G={}, m_G={}, c_G={}, N_H={}, m_H={}, c_={};"
-                  " predicted c_K={}{}",
-                  N_G, m_G, c_G, N_H, m_H, c_H, c_K,
-                  (diameter > 1)
-                    ? "; diam_G="+to_string(diam_G)+", diam_H="+to_string(diam_H)
-                    : "");
-
-        // Combine G with graph from previous assembly, if given
-        if (diameter > 1){
-            log->info("Kronecker product of G with component from previous assembly ...");
-            G = Utils::Kronecker_product(K, G, rng, distr);
+            if (static_cast<int>(m_H) % 2) {
+              ++m_H;
+            }
+            H = Utopia::Graph::create_regular_graph<Graph>(N_H, m_H, false);
         }
     }
 
+    // H is a complete graph
+    else {
+        H = Utopia::Graph::create_complete_graph<Graph>(N_H);
+    }
+
+    Utils::add_self_edges(H);
+
+    // Calculate properties
+    if (diameter > 0 or calculate_diam) {
+        diam_G = std::max(diameter, Utopia::Models::NetworkAnalyser::diameter(G));
+        diam_H = Utopia::Models::NetworkAnalyser::diameter(H);
+    }
+
+    log->info("Done: Results: N_G={}, m_G={}, c_G={}, N_H={}, m_H={}, c_={};"
+              " predicted c_K={}{}",
+              N_G, m_G, c_G, N_H, m_H, c_H, c_K,
+              (diameter > 1)
+                ? "; diam_G="+to_string(diam_G)+", diam_H="+to_string(diam_H)
+                : "");
+
+    // Combine G with graph from previous assembly, if given
+    if (diameter > 1){
+        log->info("Kronecker product of G with component from previous assembly ...");
+        G = Utils::Kronecker_product(K, G, rng, distr);
+    }
+
     // ... Create Kronecker graph and write properties .........................
-    K = Utils::Kronecker_product(G, H, rng, distr);
+    if (N_H == 1) {
+        K = G;
+    }
+    else {
+        K = Utils::Kronecker_product(G, H, rng, distr);
+    }
 
     if (calculate_c) {
         if (num_vertices(H)==1) {
@@ -375,7 +389,6 @@ void create_clustering_graph(Graph& K,
         K[0].state.diameter = std::max(diam_G, diam_H);
         log->info("Kronecker product diameter: {}", K[0].state.diameter);
     }
-
 }
 
 }
