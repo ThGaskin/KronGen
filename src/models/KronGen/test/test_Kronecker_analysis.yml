@@ -1,0 +1,45 @@
+---
+Graph1:
+  params:
+    create_graph:
+      model: Kronecker
+      Kronecker:
+        Graph1:
+          model: WattsStrogatz
+          num_vertices: 10
+          mean_degree: 4
+          WattsStrogatz:
+            oriented: false
+            p_rewire: 0.2
+        Graph2:
+          model: WattsStrogatz
+          num_vertices: 10
+          mean_degree: 4
+          WattsStrogatz:
+            oriented: false
+            p_rewire: 0.2
+    NetworkAnalyser:
+      graph_analysis:
+        enabled: true
+        clustering_global: true
+        diameter: true
+Graph2:
+  params:
+    create_graph:
+      model: Kronecker
+      Kronecker:
+        Graph1:
+          model: complete
+          num_vertices: 14
+        Graph2:
+          model: ErdosRenyi
+          num_vertices: 13
+          mean_degree: 5
+          ErdosRenyi:
+            self_edges: false
+            parallel: false
+    NetworkAnalyser:
+      graph_analysis:
+        enabled: true
+        clustering_global: true
+        diameter: true

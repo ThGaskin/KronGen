@@ -13,8 +13,8 @@ variables:
   #      the variable! No no.
 
   # Setting number of processes for build jobs and DIND jobs
-  CPUS_BUILD: 4
-  CPUS_TEST: 4
+  CPUS_BUILD: 2
+  CPUS_TEST: 2
 
   # Global compiler flags
   # NOTE: This should improve the test runtime but might lead to erroneous
@@ -251,7 +251,7 @@ test:model_defaults:
     - $ENTER_UTOPIA_ENV
 
     # Run each model via the CLI, testing default model and plots configuration
-    - utopia run KronGen src/models/KronGen/run_cfg.yml --debug
+    - utopia run KronGen src/models/KronGen/cfgs/run_cfg.yml --debug
 
 
 

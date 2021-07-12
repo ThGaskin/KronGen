@@ -1,0 +1,41 @@
+---
+parameter_space:
+  # ... Run defaults ...........................................................
+  run: &run_defaults
+    seed: 42
+    num_steps: 1
+    write_every: 1
+  <<: *run_defaults
+  # ... Graph defaults .........................................................
+  graph_defaults: &graph_defaults
+    BarabasiAlbert:
+      parallel: false
+    ErdosRenyi:
+      self_edges: false
+      parallel: false
+    KlemmEguiluz:
+      mu: 0.2
+    regular:
+      oriented: false
+    star:
+      diameter: 4
+    WattsStrogatz:
+      oriented: false
+      p_rewire: 0.2
+
+  # ... Model parameters ........................................................
+  KronGen:
+    create_graph:
+      mean_degree: 4
+      num_vertices: 200
+      model: KronGen
+      KronGen:
+                
+    NetworkAnalyser:
+      <<: *run_defaults
+      graph_analysis:
+        enabled: true
+        clustering_global: true
+        diameter: true
+        distances: false
+        core_number: false

@@ -222,5 +222,16 @@ std::size_t iFUB(const VertexSizeType v,
 
 }
 
+template<typename Graph>
+double diameter (Graph& G) {
+
+    using vertices_size_type = typename boost::graph_traits<Graph>::vertices_size_type;
+
+    const auto s = fourSweep<vertices_size_type>(G);
+    const auto diam = iFUB(s.first, s.second, 0, G);
+
+    return diam;
+}
+
 }
 #endif

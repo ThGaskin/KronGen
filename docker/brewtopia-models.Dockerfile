@@ -24,7 +24,7 @@ ARG UTOPIA_BRANCH="master"
 RUN    git checkout ${UTOPIA_BRANCH} \
     && git pull
 
-ENV CC=gcc CXX=g++ CXX_FLAGS="-Og"
+ENV CC=gcc-11 CXX=g++-11 CXX_FLAGS="-Og"
 RUN    rm -rf build && mkdir -p build \
     && cd build \
     && cmake -DCMAKE_BUILD_TYPE=Debug -DCMAKE_CXX_FLAGS_DEBUG="-Og" -DHDF5_ROOT=$(brew --prefix hdf5) .. \

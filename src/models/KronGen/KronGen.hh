@@ -56,6 +56,13 @@ struct VertexState
     // (directed only)
     double reciprocity;
 
+    // global statistics: can be calculated during Kronecker tensor product
+    // process and stored in **first** vertex: access via _g[0].state.__name__
+    double mean_deg = -1;
+    double var = -1;
+    double clustering_global = -1;
+    double diameter = -1;
+
 };
 
 /// The traits of a vertex are just the traits of a graph entity
@@ -172,10 +179,10 @@ private:
 
       this->_log->info("Creating the graph ...");
 
-      GraphType g = GraphCreation::create_Kronecker_graph<GraphType>(
-            this->_cfg["create_graph"],
-            *this->_rng
-      );
+      GraphType g = GraphCreation::create_graph<GraphType>(
+            this->_cfg,
+            *this->_rng,
+            this->_log);
 
       this->_log->info("Graph creation complete.");
 
