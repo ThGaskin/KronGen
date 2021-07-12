@@ -111,7 +111,7 @@ Graph create_Kronecker_graph(const Config& cfg,
 
 /// Creates a graph from a list of topological properties
 /**
-  * \param cfg            A list of graphs to Kronecker together
+  * \param cfg            A list of topological properties and tolerances
   * \param rng            The model rng
   * \param log            The model logger
   * \param analysis_cfg   The analysis config, containing the list of parameters to
@@ -126,8 +126,8 @@ Graph create_KronGen_graph(const Config& cfg,
     std::uniform_real_distribution<double> distr(0, 1);
 
     // ... Get topological properties ..........................................
-    double N = get_as<double>("num_vertices", cfg);
-    double m = get_as<double>("mean_degree", cfg);
+    const double N = get_as<double>("num_vertices", cfg);
+    const double m = get_as<double>("mean_degree", cfg);
     double c = -1;
     std::string degree_distr = "";
     double diameter = -1;
@@ -188,10 +188,12 @@ Graph create_KronGen_graph(const Config& cfg,
     if ((diameter == -1) and (c == -1)) {
 
         if (degree_distr == "scale-free") {
-            return Utopia::Graph::create_BarabasiAlbert_graph<Graph>(N, m, false, rng);
+            return Utopia::Graph::create_BarabasiAlbert_graph<Graph>(N, m,
+                                                                     false, rng);
         }
         else {
-            return Utopia::Graph::create_ErdosRenyi_graph<Graph>(N, m, false, false, rng);
+            return Utopia::Graph::create_ErdosRenyi_graph<Graph>(N, m, false,
+                                                                 false, rng);
         }
     }
 
@@ -208,9 +210,9 @@ Graph create_KronGen_graph(const Config& cfg,
 
     // ... Create graph with given clustering coefficient ......................
     if (c != -1) {
-
+        const double tolerance = get_as<double>("tolerance", cfg["KronGen"]);
         Clustering::create_clustering_graph(K, N, m, c, diameter, degree_distr,
-                                            calculate_c, calculate_diam,
+                                            calculate_c, calculate_diam, tolerance,
                                             rng, distr, log);
     }
 

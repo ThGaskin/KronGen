@@ -63,6 +63,7 @@ double diameter_error(const double diam_1, const double diam_target) {
   * \param degree_distr     The target degree distribution
   * \param calculate_c      Whether or not to calculate the clustering coefficient
   * \param calculate_diam   Whether or not to calculate the diameter
+  * \param tolerance        Tolerance in adjusting the graph properties
   * \param rng              The model rng
   * \param distr            Uniform real distribution
   * \param log              The model loggger
@@ -76,15 +77,13 @@ void create_clustering_graph(Graph& K,
                              const std::string degree_distr,
                              const bool calculate_c,
                              const bool calculate_diam,
+                             const double tolerance,
                              RNGType& rng,
                              std::uniform_real_distribution<double>& distr,
                              const Logger& log)
 {
 
     log->info("Assembling clustering component ... ");
-
-    // Grid search tolerance; should be config parameter
-    const double tolerance = 0.05;
 
     // Target values
     const double N_target = (diameter > 0)
@@ -220,7 +219,7 @@ void create_clustering_graph(Graph& K,
                 for (c_H_temp = 0; c_H_temp < 2; ++c_H_temp) {
 
                     for (int a = 0; a < 2; ++a) {
-
+                        if (c_H_temp == 0 and a == 1) {continue;}
                         // First attempt: use calculated m_H_temp from get_mean_deg_c
                         if (a==0) {
                             m_H_temp = std::round(std::max(
@@ -276,13 +275,14 @@ void create_clustering_graph(Graph& K,
                             // Predicted c_K
                             c_K=predicted_c_K;
                             // Whether or not H has clustering 0
-                            zero_c = (c_H == 0);
+                            zero_c = !(c_H==1 && a==0);
                             // Set the error to the current value
                             error = current_err;
                             log->debug("Improvement: N_T={}, m_T={}, c_T={}, "
-                              "diam_T={}, N_H={}, m_H={}, predicted c_K={}, "
-                              "error={}.",
-                              N_G, m_G, c_G, diam_G, N_H, m_H, predicted_c_K, error);
+                              "diam_T={}, N_H={}, m_H={}, c_H={}, predicted c_K={}, "
+                              "error={}. {}",
+                              N_G, m_G, c_G, diam_G, N_H, m_H, c_H,
+                              predicted_c_K, error);
                         }
                     }
 
@@ -342,7 +342,7 @@ void create_clustering_graph(Graph& K,
 
     // H is a complete graph
     else {
-        H = Utopia::Graph::create_complete_graph<Graph>(N_H);
+        H = Utopia::Graph::create_complete_graph<Graph>(m_H+1);
     }
 
     Utils::add_self_edges(H);
@@ -353,7 +353,7 @@ void create_clustering_graph(Graph& K,
         diam_H = Utopia::Models::NetworkAnalyser::diameter(H);
     }
 
-    log->info("Done: Results: N_G={}, m_G={}, c_G={}, N_H={}, m_H={}, c_={};"
+    log->info("Done: Results: N_G={}, m_G={}, c_G={}, N_H={}, m_H={}, c_H={};"
               " predicted c_K={}{}",
               N_G, m_G, c_G, N_H, m_H, c_H, c_K,
               (diameter > 1)
