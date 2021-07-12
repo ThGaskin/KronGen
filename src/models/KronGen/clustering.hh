@@ -30,7 +30,7 @@ using namespace Utopia::Models::NetworkAnalyser;
 /// Relative error of variable x to y
 double rel_err(const double x, const double y) {
 
-    return abs(1.-x/y);
+    return std::abs(1.-x/y);
 }
 
 /// Square mean of a list of errors
