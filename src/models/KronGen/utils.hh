@@ -232,6 +232,21 @@ void calculate_properties(Graph& h,
     }
 }
 
+/// Calculate the clustering coefficient of regular graph
+/// To do: test
+double regular_graph_clustering(const double& N, const double& m) {
+    if (m < 2) { return 0; }
+    double T = (m/2 * (m-1.))-m/4*(m/2+1);
+    const double T_2 = (m-2*N/3)*(m/4*(m/2+1))/(N/3-1.);
+    if ( 2*N/3 < m) {
+      T += T_2;
+    }
+    const double c = (T /(m/2*(m-1)));
+
+    return c;
+
+}
+
 
 // ... Utility functions .......................................................
 
@@ -303,7 +318,7 @@ vector_pt mean_deg_factors (const size_t m)
             }
         }
     }
-    
+
     return res;
 }
 

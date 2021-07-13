@@ -26,7 +26,6 @@ using namespace Utopia::Models::KronGen;
 using namespace Utopia::Models::NetworkAnalyser;
 
 // ... Grid search utility functions ...........................................
-
 /// Relative error of variable x to y
 double rel_err(const double x, const double y) {
 
@@ -110,11 +109,13 @@ void create_clustering_graph(Graph& K,
     // ... Assembly start ......................................................
 
     // Component graphs & properties
-    Graph G{}, H{};
+    Graph G{}, H{1};
     double N_G=N_target, N_H=1, m_G=m_target, m_H=0, var_G, var_H=0;
     double c_K, c_G, c_H=1, diam_G=-1, diam_H;
 
     // ... Base graph creation .................................................
+    // To do: this does not always need to happen, especially as calculating the
+    // clustering coefficient is expensive
     // Base graph is the graph generated using the target values for N
     if (degree_distr=="scale-free") {
         G = Utopia::Graph::create_BarabasiAlbert_graph<Graph>(N_target, m_target,
@@ -159,8 +160,8 @@ void create_clustering_graph(Graph& K,
     // ... Grid search .........................................................
     // If the base case is insufficent: grid search over N_fac, m_fac
 
-    // Whether second component H has clustering coefficient 0
-    bool zero_c = false;
+    // What type of graph the second component H is;
+    std::string H_type = "";
 
     if (error > tolerance) {
         log->debug("Commencing grid search ...");
@@ -219,7 +220,9 @@ void create_clustering_graph(Graph& K,
                 for (c_H_temp = 0; c_H_temp < 2; ++c_H_temp) {
 
                     for (int a = 0; a < 2; ++a) {
+                        // TO DO: complementary case: regular graph does not have c=1!
                         if (c_H_temp == 0 and a == 1) {continue;}
+
                         // First attempt: use calculated m_H_temp from get_mean_deg_c
                         if (a==0) {
                             m_H_temp = std::round(std::max(
@@ -237,6 +240,15 @@ void create_clustering_graph(Graph& K,
                         }
 
                         if (m_H_temp >= N_H_temp) { continue; }
+
+                        if (c_H_temp == 0 and a == 0 and (N_H_temp < 2*m_H_temp)) {
+                            continue;
+                        }
+
+                        // To do: calculate this properly!
+                        if (a == 1) {
+                            c_H_temp = Utils::regular_graph_clustering(N_H_temp, m_H_temp);
+                        }
 
                         // Calculate predicted clustering coefficient (var_H = 0)
                         predicted_c_K = Utils::Kronecker_clustering(
@@ -274,25 +286,36 @@ void create_clustering_graph(Graph& K,
                             c_H = c_H_temp;
                             // Predicted c_K
                             c_K=predicted_c_K;
-                            // Whether or not H has clustering 0
-                            zero_c = !(c_H==1 && a==0);
+                            // Graph H type
+                            if (c_H_temp == 0 and a == 0) {
+                                H_type = "zero_c";
+                            }
+                            else if (c_H_temp == 1 and a == 0) {
+                                H_type = "complete";
+                            }
+                            else {
+                                H_type = "regular";
+                            }
                             // Set the error to the current value
                             error = current_err;
                             log->debug("Improvement: N_T={}, m_T={}, c_T={}, "
                               "diam_T={}, N_H={}, m_H={}, c_H={}, predicted c_K={}, "
-                              "error={}. {}",
+                              "error={}. H type is {}",
                               N_G, m_G, c_G, diam_G, N_H, m_H, c_H,
-                              predicted_c_K, error);
+                              predicted_c_K, error, H_type);
+                        }
+                        if (a==1) {
+                            c_H_temp = 1;
                         }
                     }
-
                 }
                 if (error < tolerance) {break;}
             }
             if (error < tolerance) {break;}
         }
 
-        log->debug("Grid search complete.");
+        log->debug("Grid search complete. Preliminary results: N_G={}, m_G={}"
+                   ", N_H={}, m_H={}; H type is {}", N_G, m_G, N_H, m_H, H_type);
     }
 
     // If base graph is sufficient: no need to regenerate the base graph
@@ -313,38 +336,35 @@ void create_clustering_graph(Graph& K,
             G = Utopia::Graph::create_ErdosRenyi_graph<Graph>(N_G, m_G,
                                                               false, false, rng);
         }
-        log->info("Done. Generating graph H ...");
+        log->info("Done. Generating graph H ... ");
     }
 
     Utils::add_self_edges(G);
 
-
-    if (N_H == 1) {
-        H = Graph{1};
-    }
-
     // H is a zero-clustering graph
-    else if (zero_c) {
-        if (N_H >= 2.*m_H) {
-            // To do: Adapt this properly to m
-            if (static_cast<int>(N_H) % 2) {
-                ++N_H;
-            }
-            H = AuxGraphs::create_zero_c_graph<Graph>(N_H, m_H);
+    if (H_type == "zero_c") {
+        // To do: Adapt this properly to m
+        if (static_cast<int>(N_H) % 2) {
+            ++N_H;
         }
-        else {
-            if (static_cast<int>(m_H) % 2) {
-              ++m_H;
-            }
-            H = Utopia::Graph::create_regular_graph<Graph>(N_H, m_H, false);
-        }
+        H = AuxGraphs::create_zero_c_graph<Graph>(N_H, m_H);
     }
-
+    // H is a regular graph
+    else if (H_type == "regular") {
+        if (static_cast<int>(m_H) % 2) {
+          ++m_H;
+        }
+        H = Utopia::Graph::create_regular_graph<Graph>(N_H, m_H, false);
+        c_H = global_clustering_coeff(H);
+    }
     // H is a complete graph
-    else {
+    else if (H_type == "complete") {
+
         H = Utopia::Graph::create_complete_graph<Graph>(m_H+1);
     }
 
+    log->debug("Generated {} graph with {} vertices and mean degree {}.",
+               H_type, N_H, m_H);
     Utils::add_self_edges(H);
 
     // Calculate properties
