@@ -51,32 +51,3 @@ struct Test_Graph : Infrastructure {
                       Edge>;               // edge struct
 
 };
-
-BOOST_FIXTURE_TEST_CASE(test_Kronecker_analysis, Test_Graph)
-{
-    using vertices_size_type = typename boost::graph_traits<G_vec_u>::vertices_size_type;
-
-    test_config_callable (
-
-      [&](auto test_cfg){
-
-          const G_vec_u g = create_graph<G_vec_u>(test_cfg, *rng, logger, true);
-
-          BOOST_TEST_CHECKPOINT("Kronecker graph generated");
-
-          // Check clustering
-          const auto c0 = global_clustering_coeff(g);
-          BOOST_TEST_CHECKPOINT("Testing clustering coefficient");
-          BOOST_TEST(g[0].state.clustering_global == c0,
-                     boost::test_tools::tolerance(1.e-12)
-          );
-
-          // Check diameter
-          const auto starting_point = fourSweep<vertices_size_type>(g);
-          const auto d = iFUB(starting_point.first, starting_point.second, 0, g);
-          BOOST_TEST_CHECKPOINT("Testing diameter");
-          BOOST_TEST(g[0].state.diameter == d);
-      },
-      cfg
-    );
-}

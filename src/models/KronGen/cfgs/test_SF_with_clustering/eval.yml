@@ -10,14 +10,6 @@ _:
   x_label: &x_label
     x: Target diameter
 
-# ... Clustering over sweep parameter ..........................................
-clustering:
-  based_on: clustering
-  <<: [*sweep_param, *x_coord]
-  helpers:
-    set_labels:
-      <<: *x_label
-
 # ... Graph mean degree ........................................................
 mean_degree:
   based_on: mean_degree
@@ -36,21 +28,7 @@ num_vertices:
 
 # ... Graph diameter ...........................................................
 diameter:
-  based_on: diameter_target
-  <<: [*sweep_param, *x_coord]
+  based_on: diameter
   helpers:
     set_labels:
       <<: *x_label
-
-# ... Graph plot ...............................................................
-graph:
-  based_on: graph
-  enabled: false
-
-# ... Network statistics .......................................................
-nw_stats:
-  based_on: nw_stats
-  
-# ... Diameter estimate coefficient ............................................
-diameter_coeff:
-  based_on: diameter_coeff

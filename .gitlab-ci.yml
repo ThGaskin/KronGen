@@ -138,8 +138,8 @@ prep:framework:
     # Create a build directory and run cmake
     - cd $CI_PROJECT_DIR && mkdir build && cd build
     - cmake
-      -DCPP_COVERAGE=On ..
-      -DHDF5_ROOT=$(brew --prefix hdf5)
+      -DCPP_COVERAGE=On
+      -DHDF5_ROOT=$(brew --prefix hdf5) ..
 
 
     # Show available models
@@ -251,7 +251,7 @@ test:model_defaults:
     - $ENTER_UTOPIA_ENV
 
     # Run each model via the CLI, testing default model and plots configuration
-    - utopia run KronGen src/models/KronGen/cfgs/run_cfg.yml --debug
+    - utopia run KronGen src/models/KronGen/cfgs/run.yml --debug --update-plots-cfg nw_stats.style.rc_file=""
 
 
 

@@ -111,7 +111,9 @@ Graph create_second_Kronecker_factor(const double N,
     // Create an empty graph
     Graph H{};
     double N_H = std::round(N/N_G);
-    m_H = std::round((m+1)/(m_G+1)-1);
+    m_H = std::round(Utils::Kronecker_mean_degree_inv(m, m_G));
+
+    log->debug("Required: N_H = {}, m_H = {}.", N_H, m_H);
 
     // If no second Kronecker factor is possible: discard the first factor and
     // return
@@ -122,6 +124,7 @@ Graph create_second_Kronecker_factor(const double N,
 
     // Get an estimate of the diameter of the second factor
     const auto estimated_diameter = std::round(Utils::diameter_estimation(N_H, m_H));
+    log->debug("Estimated diameter = {}", estimated_diameter);
 
     // If the estimated diameter lower or equal to target diameter: create
     // second factor and combine.
@@ -227,8 +230,9 @@ Graph create_second_Kronecker_factor(const double N,
 
             add_vertex(H);
             Utils::add_self_edges(H);
-
-            for (const auto& f : factors) {
+            bool first_run = true;
+            for (std::size_t l = 0; l < factors.size(); ++l) {
+                const auto f = factors[l];
                 Graph t{};
                 if (degree_distr == "scale-free") {
                     t = create_BarabasiAlbert_graph<Graph>(f.first, f.second, false, rng);
@@ -236,21 +240,26 @@ Graph create_second_Kronecker_factor(const double N,
                 else {
                       t = create_ErdosRenyi_graph<Graph>(f.first, f.second, false, false, rng);
                 }
+                log->debug("Factor {} created with {} vertices and mean degree {}", l+1, f.first, f.second);
 
-                if (calculate_c) {
-                    const auto deg_stats = degree_statistics(t);
-                    if (c_H == -1) {
+                const auto deg_stats = degree_statistics(t);
+                const auto m_t = deg_stats.first;
+                const auto var_t = deg_stats.second;
+
+                if (first_run) {
+                    m_H = deg_stats.first;
+                    var_H = deg_stats.second;
+                    if (calculate_c) {
                         c_H = global_clustering_coeff(t);
-                        m_H = deg_stats.first;
-                        var_H = deg_stats.second;
                     }
-                    else {
+                    first_run = false;
+                }
+                else {
+                    m_H = Utils::Kronecker_mean_degree(m_H, m_t);
+                    var_H = Utils::Kronecker_degree_variance(m_H, m_t, var_H, var_t);
+                    if (calculate_c) {
                         const auto c_t = global_clustering_coeff(t);
-                        const auto m_t = deg_stats.first;
-                        const auto var_t = deg_stats.second;
                         c_H = Utils::Kronecker_clustering(c_H, c_t, m_H, m_t, var_H, var_t);
-                        m_H = Utils::Kronecker_mean_degree(m_H, m_t);
-                        var_H = Utils::Kronecker_degree_variance(m_H, m_t, var_H, var_t);
                     }
                 }
                 if (calculate_diam) {

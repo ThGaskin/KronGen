@@ -9,11 +9,6 @@ from utopya.plotting import is_plot_func, PlotHelper, UniversePlotCreator
 
 from .tools import titles
 
-matplotlib.rcParams['mathtext.fontset']='stix'
-matplotlib.rcParams['font.family']='serif'
-rc('text', usetex=True)
-
-
 # -----------------------------------------------------------------------------
 @is_plot_func(creator_type=UniversePlotCreator)
 def network_stats(dm: DataManager, *,

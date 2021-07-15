@@ -110,7 +110,7 @@ double Kronecker_degree_variance (const double g,
 
 /// Caclulate the required mean degree of a Kronecker factor, given the target
 /// and one other factor
-double Kronecker_mean_degree_factor (const double m, const double g)
+double Kronecker_mean_degree_inv (const double m, const double g)
 {
     return ((m+1)/(g+1)-1);
 }
@@ -232,22 +232,6 @@ void calculate_properties(Graph& h,
     }
 }
 
-/// Calculate the clustering coefficient of regular graph
-/// To do: test
-double regular_graph_clustering(const double& N, const double& m) {
-    if (m < 2) { return 0; }
-    double T = (m/2 * (m-1.))-m/4*(m/2+1);
-    const double T_2 = (m-2*N/3)*(m/4*(m/2+1))/(N/3-1.);
-    if ( 2*N/3 < m) {
-      T += T_2;
-    }
-    const double c = (T /(m/2*(m-1)));
-
-    return c;
-
-}
-
-
 // ... Utility functions .......................................................
 
 /// Add self_edges to a graph
@@ -265,7 +249,6 @@ void remove_self_edges (Graph& g) {
         boost::remove_edge(v, v, g);
     }
 }
-
 
 /// Return a list of possible vertex number factor pairs producing
 // a desired product. Does not include (1, N) or (2, N/2)
@@ -367,7 +350,7 @@ pair_pt get_factors_N_m (const size_t N,
     return {{0, 0},{0, 0}};
 }
 
-/// Returns an estimation of the diameter of a network, given the number of
+/// Returns an estimation of the diameter of a random network, given the number of
 /// vertices and the mean degree
 /**
   * \param N     The number of vertices
@@ -377,7 +360,7 @@ pair_pt get_factors_N_m (const size_t N,
 */
 // To do: test me
 // To do: extreme cases
-// To do factor of 1.6?
+// To do: factor of 1.6?
 double diameter_estimation (const double N, const double m) {
     if (m == 0) {
         return -1;
@@ -402,6 +385,27 @@ double diameter_estimation (const double N, const double m) {
 double mean_degree_chain_graph (const double N) {
 
     return (2*(N-1)/N);
+}
+
+/// Returns the clustering coefficient of regular graph
+/**
+  * \param N    The number of vertices
+  * \param m    The mean degree
+  *
+  * \return c   The clustering coefficient
+*/
+// To do: linear interpolation not quite accurate
+double regular_graph_clustering(const double& N, const double& m) {
+    if (N < 3 or m < 2) {
+        return 0;
+    }
+    double T = (m/2 * (m-1.))-m/4*(m/2+1);
+    const double T_2 = (m-2*N/3)*(m/4*(m/2+1))/(N/3-1.);
+    if ( 2*N/3 < m) {
+        T += T_2;
+    }
+
+    return (T /(m/2*(m-1)));
 }
 
 }

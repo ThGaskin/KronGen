@@ -23,6 +23,7 @@ namespace Utopia::Models::KronGen::Clustering {
 
 using namespace boost;
 using namespace Utopia::Models::KronGen;
+using namespace Utopia::Models::KronGen::Utils;
 using namespace Utopia::Models::NetworkAnalyser;
 
 // ... Grid search utility functions ...........................................
@@ -58,7 +59,7 @@ double diameter_error(const double diam_1, const double diam_target) {
   *\ param N                The target number of vertices
   *\ param m                The target mean degree
   *\ param c                The target clustering coefficient
-  * \param diameter         The target diameter
+  * \param d                The target diameter
   * \param degree_distr     The target degree distribution
   * \param calculate_c      Whether or not to calculate the clustering coefficient
   * \param calculate_diam   Whether or not to calculate the diameter
@@ -72,7 +73,7 @@ void create_clustering_graph(Graph& K,
                              const double N,
                              const double m,
                              const double c,
-                             const double diameter,
+                             const double d,
                              const std::string degree_distr,
                              const bool calculate_c,
                              const bool calculate_diam,
@@ -85,10 +86,10 @@ void create_clustering_graph(Graph& K,
     log->info("Assembling clustering component ... ");
 
     // Target values
-    const double N_target = (diameter > 0)
+    const double N_target = (d > 0)
         ?  std::round(N/num_vertices(K))
         :  N;
-    const double m_target = (diameter > 0)
+    const double m_target = (d > 0)
         ? std::round((m+1)/(K[0].state.mean_deg+1)-1)
         : m;
 
@@ -132,13 +133,13 @@ void create_clustering_graph(Graph& K,
 
     // If diameter is specified: c_G must include the clustering coefficient
     // from the previous assembly.
-    if (diameter > 0) {
+    if (d > 0) {
         c_G = Utils::Kronecker_clustering(c_G, K[0].state.clustering_global,
                                           ds_G.first, K[0].state.mean_deg,
                                           ds_G.second, K[0].state.var);
         var_G = Utils::Kronecker_degree_variance(ds_G.first, K[0].state.mean_deg,
                                                  ds_G.second, K[0].state.var);
-        diam_G = std::max(diameter, Utopia::Models::NetworkAnalyser::diameter(G));
+        diam_G = std::max(d, diameter(G));
     }
     else {
         var_G = ds_G.second;
@@ -148,13 +149,13 @@ void create_clustering_graph(Graph& K,
     double error = err_func(
         {rel_err(ds_G.first, m_target),
          rel_err(c_G, c),
-         diameter_error(diam_G, diameter)}
+         diameter_error(diam_G, d)}
     );
 
     // Output base graph property info
     log->info("Base graph created: N_G={}, m_G={}, c_G={}, {}error={}",
                N_G, m_G, c_G,
-               (diameter > -1 ? "diam_G="+to_string(diam_G)+", " : ""),
+               (d > -1 ? "diam_G="+to_string(diam_G)+", " : ""),
                error);
 
     // ... Grid search .........................................................
@@ -199,13 +200,13 @@ void create_clustering_graph(Graph& K,
 
                 const auto ds_T = degree_statistics(T);
 
-                if (diameter > 0) {
+                if (d > 0) {
                     m_T = Utils::Kronecker_mean_degree(ds_T.first, K[0].state.mean_deg);
                     var_T = Utils::Kronecker_degree_variance(ds_T.first,
                                                              K[0].state.mean_deg,
                                                              ds_T.second,
                                                              K[0].state.var);
-                    diam_T = std::max(diameter, Utopia::Models::NetworkAnalyser::diameter(T));
+                    diam_T = std::max(d, diameter(T));
 
                     c_T = Utils::Kronecker_clustering(c_T, K[0].state.clustering_global,
                                                 ds_T.first, K[0].state.mean_deg,
@@ -235,7 +236,8 @@ void create_clustering_graph(Graph& K,
                         // Second attempt: Use the complementary value to m_fac
                         // instead of the calculated mean degree
                         else {
-                            m_H_temp = std::round((m_target+1)/(m_fac+1))-1;
+                            m_H_temp = std::round(
+                              Utils::Kronecker_mean_degree_inv(m_target, m_fac));
                             N_H_temp = N_target/n_fac;
                         }
 
@@ -255,8 +257,8 @@ void create_clustering_graph(Graph& K,
                               c_T, c_H_temp, m_T, m_H_temp, var_T, var_H);
 
                         // Estimate diameter of component H
-                        if (diameter > 0) {
-                            diam_H_temp = N_H_temp/m_H_temp;
+                        if (d > 0) {
+                            diam_H_temp = Utils::diameter_estimation(N_H_temp, m_H_temp);
                         }
 
                         // Calculate error
@@ -264,7 +266,7 @@ void create_clustering_graph(Graph& K,
                             {rel_err(n_fac*N_H_temp, N_target),
                              rel_err((ds_T.first+1)*(m_H_temp+1), m_target+1),
                              rel_err(predicted_c_K, c),
-                             diameter_error(std::max(diam_T, diam_H_temp), diameter)});
+                             diameter_error(std::max(diam_T, diam_H_temp), d)});
 
                         // If the current graph reduces the error: set graph factor
                         // values to current state in order to later reproduce the
@@ -368,20 +370,20 @@ void create_clustering_graph(Graph& K,
     Utils::add_self_edges(H);
 
     // Calculate properties
-    if (diameter > 0 or calculate_diam) {
-        diam_G = std::max(diameter, Utopia::Models::NetworkAnalyser::diameter(G));
-        diam_H = Utopia::Models::NetworkAnalyser::diameter(H);
+    if (d > 0 or calculate_diam) {
+        diam_G = std::max(d, diameter(G));
+        diam_H = diameter(H);
     }
 
     log->info("Done: Results: N_G={}, m_G={}, c_G={}, N_H={}, m_H={}, c_H={};"
               " predicted c_K={}{}",
               N_G, m_G, c_G, N_H, m_H, c_H, c_K,
-              (diameter > 1)
+              (d > 1)
                 ? "; diam_G="+to_string(diam_G)+", diam_H="+to_string(diam_H)
                 : "");
 
     // Combine G with graph from previous assembly, if given
-    if (diameter > 1){
+    if (d > 1){
         log->info("Kronecker product of G with component from previous assembly ...");
         G = Utils::Kronecker_product(K, G, rng, distr);
     }

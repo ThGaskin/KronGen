@@ -21,7 +21,7 @@ using namespace Utopia::Models::KronGen::Utils;
 using namespace Utopia::Models::NetworkAnalyser;
 using namespace Utopia;
 
-// -- Types -------------------------------------------------------------------
+// -- Types --------------------------------------------------------------------
 
 struct Infrastructure : public BaseInfrastructure<> {
     Infrastructure() : BaseInfrastructure<>("test_Kronecker_properties.yml") {};
@@ -51,10 +51,10 @@ struct Test_Graph : Infrastructure {
 
 };
 
+// -- Tests --------------------------------------------------------------------
 BOOST_FIXTURE_TEST_CASE(test_Kronecker_properties, Test_Graph)
 {
-    using vertices_size_type = typename boost::graph_traits<Graph>::vertices_size_type;
-
+  
     test_config_callable (
 
       [&](auto test_cfg){
@@ -76,8 +76,7 @@ BOOST_FIXTURE_TEST_CASE(test_Kronecker_properties, Test_Graph)
               const auto n_vertices = boost::num_vertices(g);
               const auto deg_stats = degree_statistics(g);
               const auto clustering = global_clustering_coeff(g);
-              const auto starting_point = fourSweep<vertices_size_type>(g);
-              const double d = iFUB(starting_point.first, starting_point.second, 0, g);
+              const double d = diameter(g);
 
               N.push_back(n_vertices);
               k.push_back(static_cast<double>(deg_stats.first));
@@ -126,8 +125,7 @@ BOOST_FIXTURE_TEST_CASE(test_Kronecker_properties, Test_Graph)
                      boost::test_tools::tolerance(1.e-12));
 
           // Check diameter
-          const auto starting_point = fourSweep<vertices_size_type>(g0);
-          const auto d = iFUB(starting_point.first, starting_point.second, 0, g0);
+          const auto d = diameter(g0);
           BOOST_TEST_CHECKPOINT("Testing diameter");
           BOOST_TEST(d == std::max(diam[0], diam[1]));
 

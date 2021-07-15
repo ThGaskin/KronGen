@@ -47,8 +47,6 @@ struct Test_Graph : Infrastructure {
                       Vertex,              // vertex struct
                       Edge>;               // edge struct
 
-  using vertices_size_type = typename boost::graph_traits<Graph>::vertices_size_type;
-
 };
 
 // zero clustering graph
@@ -74,12 +72,10 @@ BOOST_FIXTURE_TEST_CASE(chain_graph, Test_Graph)
     const std::vector<std::size_t> n_vertices = {2, 3, 4, 5, 6, 8, 10, 11, 20};
     for (const auto& N : n_vertices) {
         const auto g = create_chain_graph<Graph>(N);
-        const auto starting_point = fourSweep<vertices_size_type>(g);
-        const auto diam = iFUB(starting_point.first, starting_point.second, 0, g);
 
         BOOST_TEST(num_vertices(g) == N);
-        BOOST_TEST(num_edges(g) == num_vertices(g)-1);
-        BOOST_TEST(diam == N - 1);
+        BOOST_TEST(2.0*num_edges(g)/N == mean_degree_chain_graph(N));
+        BOOST_TEST(diameter(g) == N - 1);
         assert_no_parallel_self_edges(g);
     }
 }
@@ -90,18 +86,16 @@ BOOST_FIXTURE_TEST_CASE(star_graph, Test_Graph)
 
     const std::vector<std::size_t> n_vertices = {20, 30, 40};
     const std::vector<double> mean_degree = {2, 3, 4, 5, 6, 7, 8};
-    const std::vector<std::size_t> diameter = {2, 3, 4, 5, 6, 7, 8};
+    const std::vector<std::size_t> diameters = {2, 3, 4, 5, 6, 7, 8};
 
     for (const auto& N : n_vertices) {
         for (const auto& k : mean_degree) {
-            for (const auto& d : diameter) {
+            for (const auto& d : diameters) {
                 const auto g = create_star_graph<Graph>(N, k, d, *rng);
-                const auto starting_point = fourSweep<vertices_size_type>(g);
-                const auto diam = iFUB(starting_point.first, starting_point.second, 0, g);
 
                 BOOST_TEST(num_vertices(g) == N);
                 BOOST_TEST(2*num_edges(g) == N*k);
-                BOOST_TEST(diam == d);
+                BOOST_TEST(d == diameter(g));
                 assert_no_parallel_self_edges(g);
             }
         }

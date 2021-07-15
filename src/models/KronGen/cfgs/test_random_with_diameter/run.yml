@@ -1,0 +1,33 @@
+---
+parameter_space:
+  # ... Run defaults ...........................................................
+  run: &run_defaults
+    seed: 42
+    num_steps: 1
+    write_every: 1
+  <<: *run_defaults
+  perform_sweep: true
+
+  # ... Model parameters .......................................................
+  KronGen:
+    create_graph:
+      mean_degree: !sweep
+        default: 20
+        values: [3, 4, 6, 8, 10]
+      num_vertices: !sweep
+        default: 500
+        values: [300, 500]
+      model: KronGen
+      KronGen:
+        diameter: !sweep
+          default: 4
+          values: [4, 5, 7, 8]
+        tolerance: 0.
+
+    # ... Analyser .............................................................
+    NetworkAnalyser:
+      <<: *run_defaults
+      graph_analysis:
+        degree: false
+        diameter: true
+        clustering_global: true

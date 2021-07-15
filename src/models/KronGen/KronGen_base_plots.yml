@@ -1,24 +1,31 @@
 ---
+KronGen_default:
+  style:
+    rc_file: ~/Utopia/KronGen/src/models/KronGen/cfgs/rcParams.yml
+
 network_stats:
+  based_on: KronGen_default
   creator: universe
   universes: all
   module: model_plots.KronGen
   plot_func: network_stats
 
 multiverse.errorbars:
+  based_on: KronGen_default
   creator: multiverse
   expected_multiverse_ndim: [1,2,3,4,5]
   module: dantro.plot_creators.ext_funcs.generic
   plot_func: errorbars
 
 sweep_stats:
+  based_on: [.dag.generic.facet_grid, KronGen_default]
   creator: multiverse
-  based_on: .dag.generic.facet_grid
   expected_multiverse_ndim: [1,2,3,4,5]
   kind: line
 
 # ... Comparison of data and target values .....................................
 data_target_comp:
+  based_on: KronGen_default
   creator: multiverse
   expected_multiverse_ndim: [1,2,3,4,5]
   module: model_plots.KronGen
@@ -31,13 +38,20 @@ data_target_comp:
             args: [!dag_prev ]
             kwargs:
               time: -1
+  transform:
+    - operation: xr.Dataset
+      kwargs:
+        data_vars:
+          actual: !dag_tag data_val
+          target: !dag_tag theoretical_values
+      tag: data
   target:
     color: black
     linestyle: dashed
 
 # ... Graph plot ...............................................................
 graph:
-  based_on: .dag.graph
+  based_on: [.dag.graph, KronGen_default]
   dag_options:
     select_path_prefix: data/KronGen/NetworkAnalyser
   select:
@@ -84,7 +98,7 @@ nw_stats:
   color: black
 
 nw_stats_sweep:
-  based_on: multiverse.errorbars
+  based_on: [multiverse.errorbars, KronGen_default]
   select_and_combine:
     fields:
       diameter:
@@ -137,7 +151,7 @@ clustering:
   based_on: sweep_stats
   select_and_combine:
     fields:
-      c:
+      clustering_global:
         path: data/KronGen/NetworkAnalyser/graph_data/clustering_global
         transform:
           - operation: .isel
@@ -146,8 +160,30 @@ clustering:
               time: -1
   transform:
     - operation: .isel
-      args: [!dag_tag c]
+      args: [!dag_tag clustering_global]
       tag: data
+  helpers:
+    set_title:
+      title: Network clustering coefficient (global)
+    set_labels:
+      y: Clustering coefficient $c$
+    set_limits:
+      y: [0, 1]
+
+clustering_target:
+  based_on: data_target_comp
+  select_and_combine:
+    fields:
+      theoretical_values:
+        path: cfg
+        transform:
+          - getitem: [!dag_prev , KronGen]
+          - getitem: [!dag_prev , create_graph]
+          - getitem: [!dag_prev , KronGen]
+          - getitem: [!dag_prev , clustering_coeff]
+          - xr.DataArray: [!dag_prev ]
+      data_val:
+        path: data/KronGen/NetworkAnalyser/graph_data/clustering_global
   helpers:
     set_title:
       title: Network clustering coefficient (global)
@@ -208,13 +244,6 @@ num_vertices:
             kwargs:
               vertex_idx: -1
           - add: [!dag_prev , 1]
-  transform:
-    - operation: xr.Dataset
-      kwargs:
-        data_vars:
-          actual: !dag_tag data_val
-          target: !dag_tag theoretical_values
-      tag: data
   helpers:
     set_title:
       title: Number of vertices
@@ -237,6 +266,26 @@ diameter:
     - operation: .isel
       args: [!dag_tag diameter]
       tag: data
+  helpers:
+    set_title:
+      title: Network diameter
+    set_labels:
+      y: Diameter $d$
+
+diameter_target:
+  based_on: data_target_comp
+  select_and_combine:
+    fields:
+      theoretical_values:
+        path: cfg
+        transform:
+          - getitem: [!dag_prev , KronGen]
+          - getitem: [!dag_prev , create_graph]
+          - getitem: [!dag_prev , KronGen]
+          - getitem: [!dag_prev , diameter]
+          - xr.DataArray: [!dag_prev ]
+      data_val:
+        path: data/KronGen/NetworkAnalyser/graph_data/diameter
   helpers:
     set_title:
       title: Network diameter
