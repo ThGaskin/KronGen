@@ -66,7 +66,7 @@ workflow:
 .dind: &dind
   image: docker:stable
   tags:
-    - docker
+    - dind # Use 'docker' for shared GitLab runners
   services:
     - docker:dind
   variables:
@@ -273,18 +273,20 @@ report:coverage:
   script:
     # Docs: https://gcovr.com/en/stable/guide.html
     - gcovr
-        --root $CI_PROJECT_DIR/
-        --filter $CI_PROJECT_DIR/src/
+        --root ../
+        --filter ../src/
         --exclude '.*tests?/.*'
+        --exclude '../src/models/KronGen/KronGen.cc'
         --xml coverage/cobertura.xml
         --html coverage/report.html --html-details
         --print-summary
 
     # Run again for coverage report in GitLab CI/CD log
     - gcovr
-        --root $CI_PROJECT_DIR/
-        --filter $CI_PROJECT_DIR/src/
+        --root ../
+        --filter ../src/
         --exclude '.*tests?/.*'
+        --exclude '../src/models/KronGen/KronGen.cc'
   coverage: '/^lines: (\d+.\d+\%).*$/'   # matches output of --print-summary
   artifacts:
     name: "$CI_JOB_NAME"

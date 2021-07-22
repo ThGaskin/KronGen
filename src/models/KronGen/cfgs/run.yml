@@ -31,12 +31,11 @@ parameter_space:
       model: KronGen
       KronGen:
         diameter: 4
+        tolerance: 0
 
     NetworkAnalyser:
       <<: *run_defaults
       graph_analysis:
         enabled: true
         clustering_global: true
-        diameter: true
-        distances: false
-        core_number: false
+        diameter: true 
