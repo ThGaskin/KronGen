@@ -27,14 +27,14 @@ using namespace Utopia::Models::NetworkAnalyser;
   * \param N_G            The number of vertices of the first factor
   * \param m_G            The mean degree of the first factor
   * \param degree_distr   The target degree distribution
-  * \param diameter       The target diameter
+  * \param d              The target diameter
   * \param log            The model logger
   */
 template<typename Graph, typename Logger>
 Graph create_first_Kronecker_factor(double& N_G,
                                     double& m_G,
                                     const std::string degree_distr,
-                                    const double diameter,
+                                    const double d,
                                     const Logger& log)
 {
     log->info("Assembling diameter component, first factor ... ");
@@ -45,7 +45,7 @@ Graph create_first_Kronecker_factor(double& N_G,
     // For scale-free base graphs, create a simple cycle of length 2*diameter
     // with degree variance 0
     if (degree_distr == "scale-free") {
-        N_G = 2*diameter;
+        N_G = 2*d;
         m_G = 2;
         G = Utopia::Graph::create_regular_graph<Graph>(N_G, m_G, false);
 
@@ -53,7 +53,7 @@ Graph create_first_Kronecker_factor(double& N_G,
     }
     // For all others, create a chain of length diameter+1
     else {
-        N_G = diameter + 1;
+        N_G = d + 1;
         m_G = Utils::mean_degree_chain_graph(N_G);
         G = AuxGraphs::create_chain_graph<Graph>(N_G);
 
@@ -74,16 +74,16 @@ Graph create_first_Kronecker_factor(double& N_G,
   * \param m              The mean degree of the final graph
   * \param m_G            The mean degree of the first factor
   * \param degree_distr   The target degree distribution
-  * \param diameter       The target diameter
+  * \param d              The target diameter
   * \param calculate_c    Whether or not to calculate the clustering coefficient
   * \param calculate_diam Whether or not to calculate the diameter
+  * \param tolerance      The tolerance value for the grid search
   * \param c_H            The clustering coefficient of the second factor
   * \param m_H            The mean_degree of the second factor
   * \param var_H          The degree distribution variance of the second factor
   * \param diam_H         The diameter of the second factor
   * \param discard_first_factor   Whether the first factor should be discarded
   * \param rng            The model rng
-  * \param distr          Uniform distribution on (0, 1)
   * \param log            The model logger
   */
 template<typename Graph, typename RNGType, typename Logger>
@@ -92,16 +92,16 @@ Graph create_second_Kronecker_factor(const double N,
                                      const double m,
                                      const double m_G,
                                      const std::string degree_distr,
-                                     const double diameter,
+                                     const double d,
                                      const bool calculate_c,
                                      const bool calculate_diam,
+                                     const double tolerance,
                                      double& c_H,
                                      double& m_H,
                                      double& var_H,
                                      double& diam_H,
                                      bool& discard_first_factor,
                                      RNGType& rng,
-                                     std::uniform_real_distribution<double>& distr,
                                      const Logger& log)
 {
     using namespace Utopia::Graph;
@@ -128,7 +128,8 @@ Graph create_second_Kronecker_factor(const double N,
 
     // If the estimated diameter lower or equal to target diameter: create
     // second factor and combine.
-    if (estimated_diameter <= diameter) {
+    // To do: this can all be integrated into one grid search
+    if (estimated_diameter <= d) {
         if (degree_distr == "scale-free") {
             if (m_H < 3) {
                 discard_first_factor = true;
@@ -144,146 +145,141 @@ Graph create_second_Kronecker_factor(const double N,
             log->info("Result: random graph with {} vertices, mean degree {}", N_H, m_H);
             H = create_ErdosRenyi_graph<Graph>(N_H, m_H, false, false, rng);
         }
-
-        const auto deg_stats = degree_statistics(H);
-        m_H = deg_stats.first;
-        var_H = deg_stats.second;
-
-        if (calculate_c) {
-            c_H = global_clustering_coeff(H);
-        }
-
-        if (calculate_diam) {
-            diam_H = Utopia::Models::NetworkAnalyser::diameter(H);
-        }
-        log->info("Second diameter component properties: {}{}{}",
-                  (calculate_c ? "c_H="+to_string(c_H) : ""),
-                  (calculate_c and calculate_diam ? ", " : ""),
-                  (calculate_diam ? "diam_H="+to_string(diam_H) : ""));
-
-        Utils::add_self_edges(H);
-
-        return H;
     }
 
     // Second Kronecker factor has diameter larger than estimate
     else {
-        log->info("Diameter larger than estimate; attempting to further "
-                  "break down second component ... ");
-        // For small mean degree, no further breaking down of the mean degree is
-        // possible
-        if (m_H <= 2){
-            discard_first_factor = true;
-            log->info("Mean degree {} too small; discarding.", m_H);
-            return H;
+        log->info("Assembling second component via grid search; component "
+                  "target size: N_H={}, m_H={}", N_H, m_H);
+
+        // Get factors of N_H, m_H
+        auto N_factors = Utils::closest_N_factors(N_H);
+        for (const auto& nn : N_factors) {
+            N_factors.push_back({nn.second, nn.first});
+        }
+        auto m_factors = Utils::closest_mean_deg_factors(m_H);
+        for (const auto& mm : m_factors) {
+            m_factors.push_back({mm.second, mm.first});
         }
 
-        // Else: break down second factor into smaller units
+        double diam_H = estimated_diameter;
+
+        // Base error
+        double error = Clustering::err_func({
+            Clustering::rel_err(N_G*N_H, N),
+            Clustering::rel_err((m_G+1)*(m_H+1), m+1),
+            Clustering::rel_err(std::max(diam_H, d), d)});
+
+        double N_1=N_H, m_1=m_H, diam_1=diam_H;
+        double N_2=1, m_2=0, diam_2=0;
+
+        // ... Grid search .........................................................
+        if (error > tolerance) {
+            log->debug("Commencing grid search ...");
+
+            // Current error value
+            double current_err;
+
+            for (const auto& m_fac: m_factors) {
+
+                for (const auto& n_fac : N_factors) {
+
+                    if ((m_fac.first >= n_fac.first)
+                       or (m_fac.second >= n_fac.second)
+                       or (degree_distr == "scale-free" and m_fac.first < 3)
+                       or (degree_distr == "scale-free" and m_fac.second < 3)) {
+                          continue;
+                    }
+
+                    log->debug("Checking case N_H={}x{}, m_H={}x{} ... ",
+                          n_fac.first, n_fac.second, m_fac.first, m_fac.second);
+
+                    diam_1 = Utils::diameter_estimation(n_fac.first, m_fac.first);
+                    diam_2 = Utils::diameter_estimation(n_fac.second, m_fac.second);
+
+                    log->debug("Estimated diameters: {}, {}", diam_1, diam_2);
+
+                    // Calculate error
+                    current_err = Clustering::err_func(
+                        {Clustering::rel_err(n_fac.first*n_fac.second*N_G, N),
+                         Clustering::rel_err((m_fac.first+1)*(m_fac.second+1)*(m_G+1), m+1),
+                         Clustering::rel_err(std::max({diam_1, diam_2, d}), d)
+                        });
+
+                    // If the current graph reduces the error: set graph factor
+                    // values to current state
+                    if (current_err < error) {
+                        N_1 = n_fac.first;
+                        N_2 = n_fac.second;
+                        m_1 = m_fac.first;
+                        m_2 = m_fac.second;
+                        diam_H = std::max(diam_1, diam_2);
+                        error = current_err;
+                        log->debug("Improvement: N_H={}x{}, m_H={}x{}, diam_H={}",
+                          N_1, N_2, m_1, m_2, diam_H);
+                    }
+                    if (error < tolerance) {break;}
+                }
+                if (error < tolerance) {break;}
+            }
+
+            log->debug("Grid search complete. Preliminary results: N_H={}x{}, "
+                       "m_H={}x{}, diam_H = {}", N_1, N_2, m_1, m_2, diam_H);
+        }
+
+        log->info("Generating graph H ...");
+
+        // Generate the components G and H based on the values obtained from the
+        // grid search
+        if (N_1 == N_H) {
+            if (degree_distr == "scale-free") {
+                H = Utopia::Graph::create_BarabasiAlbert_graph<Graph>(N_H, m_H,
+                                                                      false, rng);
+            }
+            else {
+                H = Utopia::Graph::create_ErdosRenyi_graph<Graph>(N_H, m_H,
+                                                             false, false, rng);
+            }
+        }
         else {
-            // Collect possible Kronecker factors of H
-            std::vector<std::pair<std::size_t, double>> factors = {{N_H, m_H}};
-            bool factors_too_large = true;
-
-            while (factors_too_large) {
-                factors_too_large = false;
-                // Iterate over factors and break down any that are too large
-                for (std::size_t i = 0; i < factors.size(); ++i) {
-                    auto N_i = factors[i].first;
-                    auto m_i = factors[i].second;
-                    auto diam_i = std::round(Utils::diameter_estimation(N_i, m_i));
-
-                    // Breaking cases:
-                    if ( (N_i < 2)
-                      or (m_i < 3 and degree_distr == "scale-free")
-                      or ((N_i <= 2 or m_i <= 2) and (diam_i > diameter)))
-                    {
-                        log->info("Failed: N_i={}, m_i={}, diam_i={}; discarding.",
-                                   N_i, m_i, diam_i);
-                        discard_first_factor = true;
-                        return H;
-                    }
-
-                    // Further break down factors
-                    else if (diam_i > diameter) {
-                        factors_too_large = true;
-                        factors.erase(factors.begin()+i);
-
-                        // Attempt to factor N_i
-                        const auto new_factors = Utils::get_factors_N_m(N_i, m_i, rng);
-
-                        if (new_factors.first.first == 0) {
-                            discard_first_factor = true;
-                            return H;
-                        }
-
-                        factors.push_back(new_factors.first);
-                        factors.push_back(new_factors.second);
-
-                        break;
-                    }
-                }
+            Graph T1, T2;
+            if (degree_distr == "scale-free") {
+                T1 = Utopia::Graph::create_BarabasiAlbert_graph<Graph>(N_1, m_1,
+                                                                      false, rng);
+                T2 = Utopia::Graph::create_BarabasiAlbert_graph<Graph>(N_2, m_2,
+                                                                      false, rng);
             }
-
-            // If factors found, assemble H as Kronecker product of factors
-            log->info("Factorisation successful; created {} factors",
-                       factors.size());
-
-            add_vertex(H);
-            Utils::add_self_edges(H);
-            bool first_run = true;
-            for (std::size_t l = 0; l < factors.size(); ++l) {
-                const auto f = factors[l];
-                Graph t{};
-                if (degree_distr == "scale-free") {
-                    t = create_BarabasiAlbert_graph<Graph>(f.first, f.second, false, rng);
-                }
-                else {
-                      t = create_ErdosRenyi_graph<Graph>(f.first, f.second, false, false, rng);
-                }
-                log->debug("Factor {} created with {} vertices and mean degree {}", l+1, f.first, f.second);
-
-                const auto deg_stats = degree_statistics(t);
-                const auto m_t = deg_stats.first;
-                const auto var_t = deg_stats.second;
-
-                if (first_run) {
-                    m_H = deg_stats.first;
-                    var_H = deg_stats.second;
-                    if (calculate_c) {
-                        c_H = global_clustering_coeff(t);
-                    }
-                    first_run = false;
-                }
-                else {
-                    m_H = Utils::Kronecker_mean_degree(m_H, m_t);
-                    var_H = Utils::Kronecker_degree_variance(m_H, m_t, var_H, var_t);
-                    if (calculate_c) {
-                        const auto c_t = global_clustering_coeff(t);
-                        c_H = Utils::Kronecker_clustering(c_H, c_t, m_H, m_t, var_H, var_t);
-                    }
-                }
-                if (calculate_diam) {
-                    diam_H = std::max(diam_H, Utopia::Models::NetworkAnalyser::diameter(t));
-                }
-
-                Utils::add_self_edges(t);
-
-                H = Utils::Kronecker_product(H, t, rng, distr);
-
+            else {
+                T1 = Utopia::Graph::create_ErdosRenyi_graph<Graph>(N_1, m_1,
+                                                             false, false, rng);
+                T2 = Utopia::Graph::create_ErdosRenyi_graph<Graph>(N_2, m_2,
+                                                             false, false, rng);
             }
-
-            log->info("Done. Second diameter component properties: "
-                      "N_H={}, m_H={}{}{}{}{}.",
-                      N_H, m_H,
-                      (calculate_c or calculate_diam ? ", " : ""),
-                      (calculate_c ? "c_H="+to_string(c_H) : ""),
-                      (calculate_c and calculate_diam ? ", " : ""),
-                      (calculate_diam ? "diam_H="+to_string(diam_H) : ""));
-
-            // Return the graph
-            return H;
+            Utils::add_self_edges(T1);
+            Utils::add_self_edges(T2);
+            H = Utils::Kronecker_product(T1, T2);
+            Utils::remove_self_edges(H);
         }
     }
+    const auto deg_stats = degree_statistics(H);
+    m_H = deg_stats.first;
+    var_H = deg_stats.second;
+
+    if (calculate_c) {
+        c_H = global_clustering_coeff(H);
+    }
+
+    if (calculate_diam) {
+        diam_H = Utopia::Models::NetworkAnalyser::diameter(H);
+    }
+    log->info("Second diameter component properties: {}{}{}",
+              (calculate_c ? "c_H="+to_string(c_H) : ""),
+              (calculate_c and calculate_diam ? ", " : ""),
+              (calculate_diam ? "diam_H="+to_string(diam_H) : ""));
+
+    Utils::add_self_edges(H);
+
+    return H;
 }
 
 /// Create a graph with a given diameter
@@ -291,12 +287,11 @@ Graph create_second_Kronecker_factor(const double N,
   * \param K                The product graph
   * \param N                The target number of vertices
   * \param m                The target mean degree
-  * \param diameter         The target diameter
+  * \param d                The target diameter
   * \param degree_distr     The target degree distribution type
   * \param calculate_c      Whether or not to calculate the clustering coefficient
   * \param calculate_diam   Whether or not to calculate the diameter
   * \param rng              The model rng
-  * \param distr            Uniform real distribution on (0, 1)
   * \param log              The model logger
   */
 template<typename Graph, typename RNGType, typename Logger>
@@ -304,12 +299,12 @@ void create_diameter_graph (Graph& K,
                             const double N,
                             const double m,
                             const double c,
-                            const double diameter,
+                            const double d,
                             const std::string degree_distr,
                             const bool calculate_c,
                             const bool calculate_diam,
+                            const double tolerance,
                             RNGType& rng,
-                            std::uniform_real_distribution<double>& distr,
                             const Logger& log)
 {
     log->info("Assembling diameter component ... ");
@@ -318,8 +313,8 @@ void create_diameter_graph (Graph& K,
     if (m <= 3) {
         log->info("Mean degree < 3; returning star graph component with {} vertices, "
                   " mean degree {}", N, m);
-        K = AuxGraphs::create_star_graph<Graph>(N, m, diameter, rng);
-        K[0].state.diameter = diameter;
+        K = AuxGraphs::create_star_graph<Graph>(N, m, d, rng);
+        K[0].state.diameter = d;
         if (calculate_c) {
             K[0].state.clustering_global = global_clustering_coeff(K);
         }
@@ -332,7 +327,7 @@ void create_diameter_graph (Graph& K,
     double N_G;
     double m_G;
     Graph G = create_first_Kronecker_factor<Graph>(N_G, m_G,
-                                                   degree_distr, diameter,
+                                                   degree_distr, d,
                                                    log);
     const auto var_G = degree_statistics(G).second;
 
@@ -342,7 +337,7 @@ void create_diameter_graph (Graph& K,
         K[0].state.mean_deg = m_G;
         K[0].state.var = var_G;
         K[0].state.clustering_global = c_G;
-        K[0].state.diameter = diameter;
+        K[0].state.diameter = d;
 
         log->info("Done: returning first diameter component.");
 
@@ -355,17 +350,17 @@ void create_diameter_graph (Graph& K,
     bool discard_first_factor = false;
 
     H = create_second_Kronecker_factor<Graph>(N, N_G, m, m_G,
-                                                  degree_distr, diameter,
-                                                  calculate_c, calculate_diam,
+                                                  degree_distr, d,
+                                                  calculate_c, calculate_diam, tolerance,
                                                   c_H, m_H, var_H, diam_H,
                                                   discard_first_factor,
-                                                  rng, distr, log);
+                                                  rng, log);
 
     // ... Create Kronecker graph and write properties .........................
     // Second factor successfully created
     if (not discard_first_factor) {
 
-        K = Utils::Kronecker_product(G, H, rng, distr);
+        K = Utils::Kronecker_product(G, H);
 
         K[0].state.mean_deg = Utils::Kronecker_mean_degree(m_G, m_H);
         K[0].state.var = Utils::Kronecker_degree_variance(m_G, m_H, var_G, var_H);
@@ -374,7 +369,7 @@ void create_diameter_graph (Graph& K,
                   Utils::Kronecker_clustering(c_G, c_H, m_G, m_H, var_G, var_H);
         }
         if (calculate_diam) {
-            K[0].state.diameter = std::max(diameter, diam_H);
+            K[0].state.diameter = std::max(d, diam_H);
         }
     }
 
@@ -383,14 +378,14 @@ void create_diameter_graph (Graph& K,
         log->info("Discarding first factor and reverting to star graph with "
                   "N={}, m={}.", N, m);
 
-        K = AuxGraphs::create_star_graph<Graph>(N, m, diameter, rng);
+        K = AuxGraphs::create_star_graph<Graph>(N, m, d, rng);
         K[0].state.mean_deg = m;
         K[0].state.var = degree_statistics(K).second;
         if (calculate_c) {
             K[0].state.clustering_global = global_clustering_coeff(K);
         }
         if (calculate_diam) {
-            K[0].state.diameter = diameter;
+            K[0].state.diameter = d;
         }
     }
 }

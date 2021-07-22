@@ -12,16 +12,19 @@ parameter_space:
   KronGen:
     create_graph:
       mean_degree: !sweep
-        default: 20
-        values: [3, 4, 6, 8, 10]
+        default: 30
+        values: [2, 30]
       num_vertices: !sweep
         default: 500
-        values: [300, 500]
+        values: [300, 500, 1000]
       model: KronGen
       KronGen:
+        degree_distribution: !sweep
+          default: ""
+          values: [scale-free, ""]
         diameter: !sweep
           default: 4
-          values: [4, 5, 7, 8]
+          values: [3, 4, 5, 7, 8]
         tolerance: 0.
 
     # ... Analyser .............................................................
