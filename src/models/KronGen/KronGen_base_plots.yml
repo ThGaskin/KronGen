@@ -1,23 +1,333 @@
 ---
-graph:
-  based_on: .dag.graph
-  dag_options:
-    select_path_prefix: data/KronGen/NetworkAnalyser
+KronGen_default:
+  style:
+    rc_file: ~/Utopia/KronGen/src/models/KronGen/cfgs/rcParams.yml
 
 network_stats:
+  based_on: KronGen_default
   creator: universe
   universes: all
   module: model_plots.KronGen
   plot_func: network_stats
 
 multiverse.errorbars:
+  based_on: KronGen_default
   creator: multiverse
   expected_multiverse_ndim: [1,2,3,4,5]
   module: dantro.plot_creators.ext_funcs.generic
   plot_func: errorbars
 
 sweep_stats:
+  based_on: [.dag.generic.facet_grid, KronGen_default]
   creator: multiverse
-  based_on: .dag.generic.facet_grid
   expected_multiverse_ndim: [1,2,3,4,5]
   kind: line
+
+# ... Comparison of data and target values .....................................
+data_target_comp:
+  based_on: KronGen_default
+  creator: multiverse
+  expected_multiverse_ndim: [1,2,3,4,5]
+  module: model_plots.KronGen
+  plot_func: multiline
+  select_and_combine:
+    fields:
+      data_val:
+        transform:
+          - operation: .isel
+            args: [!dag_prev ]
+            kwargs:
+              time: -1
+  transform:
+    - operation: xr.Dataset
+      kwargs:
+        data_vars:
+          actual: !dag_tag data_val
+          target: !dag_tag theoretical_values
+      tag: data
+  target:
+    color: black
+    linestyle: dashed
+
+# ... Graph plot ...............................................................
+graph:
+  based_on: [.dag.graph, KronGen_default]
+  dag_options:
+    select_path_prefix: data/KronGen/NetworkAnalyser
+  select:
+    graph_group: graph_data
+
+  # Configure the created networkx graph object
+  graph_creation:
+    at_time_idx: -1                           # Select the last timestep
+    node_props: ['degree']  # Select node and edge
+    #edge_props: ['weights']                   # properties from the GraphGroup
+
+  # Configure the graph layout
+  graph_drawing:
+    positions:
+      model: spring                   # The spring model positions the nodes
+                                      # such that edge lengths are reduced.
+      k: 1                            # Tweaking the spring model by adjusting
+                                      # the optimal edge length (k) and the
+      iterations: 5                   # maximum number of iterations done.
+    nodes:
+      node_color:
+       from_property: degree     # Map the 'some_state' data to the color
+      node_size:
+        from_property: degree         # Map the node degree to the node size
+        scale_to_interval: [10, 30]   # Scale the (degree-)data to the given
+                                      #  interval (the default size is 300).
+    edges:
+      width: 0.2
+        #from_property: weights        # Map the 'weights' data to the edge
+        #scale_to_interval: [0.1, 1.2] # width and scale the data accordingly.
+      alpha: 0.2
+
+  helpers:
+    set_title:
+      title: Graph topology
+
+nw_stats:
+  based_on: network_stats
+  bins: 100
+  #helpers:
+    #set_scales:
+      #x: linear
+      #y: linear
+  color: black
+
+nw_stats_sweep:
+  based_on: [multiverse.errorbars, KronGen_default]
+  select_and_combine:
+    fields:
+      diameter:
+        path: cfg/NetworkAnalyser
+      param2:
+        path: data/KronGen/NetworkAnalyser/graph_data/degree
+        transform:
+          - operation: .isel
+            args: [!dag_prev ]
+            kwargs:
+              time: -1
+
+  transform:
+    - operation: .mean
+      args: [!dag_tag param2]
+      kwargs:
+        dim: vertex_idx
+      tag: means
+    - operation: .std
+      args: [!dag_tag param2]
+      kwargs:
+        dim: vertex_idx
+        ddof: 1
+      tag: stds
+    - operation: xr.Dataset
+      kwargs:
+        data_vars:
+          D: !dag_tag means
+          dD: !dag_tag stds
+      tag: data
+
+  x: diameter
+  y: D
+  yerr: dD
+
+  helpers:
+    set_title:
+      title: Mean degree
+    set_labels:
+      x: diameter (in)
+      y: $\bar{k} \pm \Delta k$
+    set_scales:
+      y: linear
+  capsize: 2
+  elinewidth: 1
+  marker: o
+
+# ... Graph clustering .........................................................
+clustering:
+  based_on: sweep_stats
+  select_and_combine:
+    fields:
+      clustering_global:
+        path: data/KronGen/NetworkAnalyser/graph_data/clustering_global
+        transform:
+          - operation: .isel
+            args: [!dag_prev ]
+            kwargs:
+              time: -1
+  transform:
+    - operation: .isel
+      args: [!dag_tag clustering_global]
+      tag: data
+  helpers:
+    set_title:
+      title: Network clustering coefficient (global)
+    set_labels:
+      y: Clustering coefficient $c$
+    set_limits:
+      y: [0, 1]
+
+clustering_target:
+  based_on: data_target_comp
+  select_and_combine:
+    fields:
+      theoretical_values:
+        path: cfg
+        transform:
+          - getitem: [!dag_prev , KronGen]
+          - getitem: [!dag_prev , create_graph]
+          - getitem: [!dag_prev , KronGen]
+          - getitem: [!dag_prev , clustering_coeff]
+          - xr.DataArray: [!dag_prev ]
+      data_val:
+        path: data/KronGen/NetworkAnalyser/graph_data/clustering_global
+  helpers:
+    set_title:
+      title: Network clustering coefficient (global)
+    set_labels:
+      y: Clustering coefficient $c$
+    set_limits:
+      y: [0, 1]
+
+# ... Graph mean degree ........................................................
+mean_degree:
+  based_on: data_target_comp
+  select_and_combine:
+    fields:
+      theoretical_values:
+        path: cfg
+        transform:
+          - getitem: [!dag_prev , KronGen]
+          - getitem: [!dag_prev , create_graph]
+          - getitem: [!dag_prev , mean_degree]
+          - xr.DataArray: [!dag_prev ]
+      data_val:
+        path: data/KronGen/NetworkAnalyser/graph_data/degree
+  transform:
+    - operation: .mean
+      args: [!dag_tag data_val]
+      kwargs:
+        dim: vertex_idx
+      tag: data_values
+    - operation: xr.Dataset
+      kwargs:
+        data_vars:
+          actual: !dag_tag data_values
+          target: !dag_tag theoretical_values
+      tag: data
+  helpers:
+    set_title:
+      title: Mean degree
+    set_labels:
+      y: Mean degree $\bar{k}$
+
+# ... Graph number of vertices .................................................
+num_vertices:
+  based_on: data_target_comp
+  select_and_combine:
+    fields:
+      theoretical_values:
+        path: cfg
+        transform:
+          - getitem: [!dag_prev , KronGen]
+          - getitem: [!dag_prev , create_graph]
+          - getitem: [!dag_prev , num_vertices]
+          - xr.DataArray: [!dag_prev ]
+      data_val:
+        path: data/KronGen/NetworkAnalyser/graph_data/_vertices
+        transform:
+          - operation: .isel
+            args: [!dag_prev ]
+            kwargs:
+              vertex_idx: -1
+          - add: [!dag_prev , 1]
+  helpers:
+    set_title:
+      title: Number of vertices
+    set_labels:
+      y: Number of vertices $N$
+
+# ... Graph diameter ...........................................................
+diameter:
+  based_on: sweep_stats
+  select_and_combine:
+    fields:
+      diameter:
+        path: data/KronGen/NetworkAnalyser/graph_data/diameter
+        transform:
+          - operation: .isel
+            args: [!dag_prev ]
+            kwargs:
+              time: -1
+  transform:
+    - operation: .isel
+      args: [!dag_tag diameter]
+      tag: data
+  helpers:
+    set_title:
+      title: Network diameter
+    set_labels:
+      y: Diameter $d$
+
+diameter_target:
+  based_on: data_target_comp
+  select_and_combine:
+    fields:
+      theoretical_values:
+        path: cfg
+        transform:
+          - getitem: [!dag_prev , KronGen]
+          - getitem: [!dag_prev , create_graph]
+          - getitem: [!dag_prev , KronGen]
+          - getitem: [!dag_prev , diameter]
+          - xr.DataArray: [!dag_prev ]
+      data_val:
+        path: data/KronGen/NetworkAnalyser/graph_data/diameter
+  helpers:
+    set_title:
+      title: Network diameter
+    set_labels:
+      y: Diameter $d$
+
+diameter_coeff:
+  based_on: sweep_stats
+  select_and_combine:
+    fields:
+      mean_degree:
+        path: cfg
+        transform:
+          - getitem: [!dag_prev , KronGen]
+          - getitem: [!dag_prev , create_graph]
+          - getitem: [!dag_prev , mean_degree]
+          - xr.: [ufuncs.log, !dag_prev ]
+      N:
+        path: cfg
+        transform:
+          - getitem: [!dag_prev , KronGen]
+          - getitem: [!dag_prev , create_graph]
+          - getitem: [!dag_prev , num_vertices]
+          - xr.: [ufuncs.log, !dag_prev ]
+      diameter:
+        path: data/KronGen/NetworkAnalyser/graph_data/diameter
+        transform:
+          - operation: .isel
+            args: [!dag_prev ]
+            kwargs:
+              time: -1
+
+  transform:
+    - operation: div
+      args: [!dag_tag mean_degree, !dag_tag N]
+    - operation: mul
+      args: [!dag_prev , !dag_tag diameter]
+      tag: data
+
+  helpers:
+    set_title:
+      title: Proportionality constant between $\log(N)/\log(\bar{k})$ and $diam$
+    set_labels:
+      x: mean degree
+      y: diam * $\log(\bar{k})/\log(N)$

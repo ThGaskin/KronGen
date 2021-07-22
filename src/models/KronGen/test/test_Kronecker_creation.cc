@@ -81,7 +81,7 @@ BOOST_FIXTURE_TEST_CASE(create_Kron_graph, Test_Graph)
                 is_complete = false;
             }
             else {
-                mean_degree *= (get_as<std::size_t>("mean_degree", factor_cfg)+1);
+                mean_degree *= (get_as<double>("mean_degree", factor_cfg)+1);
                 is_complete = false;
             }
         }

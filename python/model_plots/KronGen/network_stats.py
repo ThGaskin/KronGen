@@ -9,11 +9,6 @@ from utopya.plotting import is_plot_func, PlotHelper, UniversePlotCreator
 
 from .tools import titles
 
-# matplotlib.rcParams['mathtext.fontset']='stix'
-# matplotlib.rcParams['font.family']='serif'
-# rc('text', usetex=True)
-
-
 # -----------------------------------------------------------------------------
 @is_plot_func(creator_type=UniversePlotCreator)
 def network_stats(dm: DataManager, *,
@@ -82,7 +77,7 @@ def network_stats(dm: DataManager, *,
 
             hlpr.ax.text(0.65, 0.85, txt, color="cornflowerblue", transform=hlpr.ax.transAxes, backgroundcolor=(1, 1, 1, 0.8))
             hlpr.ax.axvline(loc, color="cornflowerblue")
-        #if (plots[i] == 'degree'):
-            #hlpr.ax.set_xscale('log')
-            #hlpr.ax.set_yscale('log')
+        if (plots[i] == 'degree'):
+            hlpr.ax.set_xscale('log')
+            hlpr.ax.set_yscale('log')
         #hlpr.ax.set_yscale('log')

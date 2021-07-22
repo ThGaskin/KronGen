@@ -2,6 +2,8 @@ import numpy as np
 import matplotlib.pyplot as plt
 import matplotlib.ticker as ticker
 
+from matplotlib.lines import Line2D
+
 from utopya.plotting import is_plot_func, PlotHelper
 
 # -----------------------------------------------------------------------------
@@ -38,3 +40,6 @@ def multiline(data,
             additional_kwargs.update(plot_kwargs_separate[var])
 
         hlpr.ax.plot(to_plot.coords[x].data, to_plot.data_vars[var].data, **plot_kwargs, **additional_kwargs)
+
+    hlpr.ax.legend([Line2D([0], [0], color='black', linestyle='dashed', lw=1)],
+                   ['Target value'])

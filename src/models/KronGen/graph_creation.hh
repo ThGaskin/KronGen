@@ -54,7 +54,7 @@ Graph create_Kronecker_graph(const Config& cfg,
     double variance;
 
     // ... Get analysis targets ................................................
-    bool calculate_c;
+    bool calculate_c = false;
     try {
         calculate_c = (get_as<bool>("clustering_global", analysis_cfg)
                     && get_as<bool>("enabled", analysis_cfg));
@@ -62,7 +62,7 @@ Graph create_Kronecker_graph(const Config& cfg,
     catch (YAML::InvalidNode&){}
     catch (Utopia::KeyError&){}
 
-    bool calculate_diam;
+    bool calculate_diam = false;
     try {
         calculate_diam = (get_as<bool>("diameter", analysis_cfg)
                     && get_as<bool>("enabled", analysis_cfg));

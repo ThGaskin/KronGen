@@ -25,7 +25,7 @@ using vector = typename std::vector<double>;
 /// (normalized with the highest possible value which would be reached
 ///  if a node is crossed by every single shortest path).
 template<typename GraphType>
-const std::pair<vector, vector> get_centralities(GraphType& g)
+const std::pair<vector, vector> get_centralities(const GraphType& g)
 {
     vector centrality(num_vertices(g));
 
@@ -48,7 +48,7 @@ const std::pair<vector, vector> get_centralities(GraphType& g)
 
 /// Calculate the global clustering coefficient
 template <typename GraphType>
-double global_clustering_coeff(GraphType& g)
+double global_clustering_coeff(const GraphType& g)
 {
     std::size_t num_triangles = 0;
     std::size_t degree_sum = 0;
@@ -59,13 +59,14 @@ double global_clustering_coeff(GraphType& g)
     }
 
     return static_cast<double>(num_triangles)/degree_sum;
+
 }
 
 // Identify groups of agents that are connected via out-edges.
 // Note that completely isolated vertices are also identified
 // as closed community.
 template<typename GraphType>
-const std::vector<std::vector<size_t>> closed_communities(GraphType& g) {
+const std::vector<std::vector<size_t>> closed_communities(const GraphType& g) {
 
     std::vector<std::vector<size_t>> cc;
     std::vector<size_t> temp_c;
@@ -121,7 +122,9 @@ const std::vector<std::vector<size_t>> closed_communities(GraphType& g) {
 // vertices have already been removed), that vertex remains in the graph.
 // This runs in linear time.
 template<typename GraphType>
-void compute_core_numbers(GraphType& g, std::vector<std::vector<size_t>> D) {
+void compute_core_numbers(GraphType& g,
+                          std::vector<std::vector<size_t>> D)
+{
 
     GraphType h;
     boost::copy_graph(g, h);
@@ -164,13 +167,13 @@ void get_distances(
 
     double harmonic = 0.;
     for (auto && elem: d) {
-      elem != 0 ? harmonic += 1. / elem : harmonic += 0;
+        elem != 0 ? harmonic += 1. / elem : harmonic += 0;
     }
 
     g[v].state.distance_avg = avg;
     harmonic != 0
-      ? g[v].state.distance_harmonic = 1 / (harmonic / (num_vertices -1))
-      : g[v].state.distance_harmonic = 0;
+        ? g[v].state.distance_harmonic = 1 / (harmonic / (num_vertices -1))
+        : g[v].state.distance_harmonic = 0;
     g[v].state.distance_max = max;
 
 }
@@ -184,7 +187,7 @@ double reciprocity(const VertexDescType v, const Graph& g)
     double r = 0.;
     for (const auto w : range<IterateOver::neighbors>(v, g)) {
         if (edge(w, v, g).second) {
-            r += 1.;
+            ++r;
         }
     }
 
@@ -200,7 +203,7 @@ double reciprocity(const Graph& g)
     for (const auto e : range<IterateOver::edges>(g)) {
         if (edge(target(e, g), source(e, g), g).second)
         {
-            r += 1;
+            ++r;
         }
     }
 
@@ -210,18 +213,18 @@ double reciprocity(const Graph& g)
 /// Calculate the mean degree and the degree variance of a graph
 // To do: test this
 template <typename GraphType>
-std::pair<double, double> degree_statistics (GraphType& g) {
-    std::size_t e = 0;
-    std::size_t ee = 0;
+std::pair<double, double> degree_statistics (const GraphType& g) {
+    double e = 0;
+    double ee = 0;
     for (const auto v : range<IterateOver::vertices>(g)) {
         const auto d = degree(v, g);
         e += d;
         ee += pow(d, 2);
     }
-    std::size_t N = num_vertices(g);
 
-    double k = static_cast<double>(e)/N;
-    double var = (static_cast<double>(ee)/N - pow(static_cast<double>(e)/N, 2));
+    const std::size_t N = num_vertices(g);
+    const double k = e/N;
+    const double var = (ee/N - pow(e/N, 2));
 
     return {k, var};
 }

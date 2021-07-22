@@ -1,0 +1,27 @@
+---
+parameter_space:
+  # ... Run defaults ...........................................................
+  run: &run_defaults
+    seed: 42
+    num_steps: 1
+    write_every: 1
+  <<: *run_defaults
+
+  # ... Model parameters ........................................................
+  KronGen:
+    create_graph:
+      num_vertices: 300
+      mean_degree: 10
+      model: ErdosRenyi
+
+    NetworkAnalyser:
+      <<: *run_defaults
+      graph_analysis:
+        enabled: true
+        centralities: true
+        clustering_coeff: true
+        clustering_global: false
+        core_number: true
+        degree: false
+        diameter: false
+        distances: true

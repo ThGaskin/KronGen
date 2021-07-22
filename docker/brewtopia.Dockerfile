@@ -13,13 +13,13 @@ FROM ${BASE_IMAGE}
 RUN brew update && brew install hello
 
 # Install Utopia framework dependencies and some additional dependencies
-RUN brew install --display-times gcc@11 llvm pkg-config cmake python@3.9
+RUN brew install --display-times gcc@10 llvm pkg-config cmake python@3.9
 RUN brew install --display-times armadillo boost hdf5 fmt spdlog yaml-cpp
 # RUN brew install --display-times ffmpeg graphviz doxygen fftw texlive
 
 # Make sure the correct gcc and Python are linked
-RUN brew link gcc@11 --force
-RUN brew link python@3.9
+RUN brew link gcc@10
+RUN brew link python@3.9 --force
 
 # .. Set up Utopia ............................................................
 RUN mkdir utopia

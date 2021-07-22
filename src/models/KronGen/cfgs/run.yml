@@ -26,11 +26,12 @@ parameter_space:
   # ... Model parameters ........................................................
   KronGen:
     create_graph:
+      num_vertices: 500
       mean_degree: 4
-      num_vertices: 200
       model: KronGen
       KronGen:
-                
+        diameter: 4
+
     NetworkAnalyser:
       <<: *run_defaults
       graph_analysis:
