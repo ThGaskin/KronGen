@@ -58,27 +58,6 @@ Graph Kronecker_product(Graph& G, Graph& H) {
     return K;
 }
 
-/// Randomised ronecker product of graphs. Graphs must have a self-loop on every
-/// node
-/**
-  * \param G      The first factor
-  * \param H      The second factor
-  * \param rng    The model rng
-  * \param distr  The uniform real distribution
-  *
-  * \return K     The Kronecker product
-*/
-template<typename Graph, typename RNGType>
-Graph Kronecker_product(Graph& G,
-                        Graph& H,
-                        RNGType& rng,
-                        std::uniform_real_distribution<double>& distr)
-{
-    return (distr(rng) < 0.5)
-      ? (Kronecker_product(G, H))
-      : (Kronecker_product(H, G));
-}
-
 /// Calculate the number of vertices of a Kronecker product of two graphs G, H
 /**
   * \param N    The number of vertices of G
@@ -372,7 +351,7 @@ double diameter_estimation (const double N, const double m) {
         return 1;
     }
     else {
-        return (1.6 * log(N)/log(m));
+        return std::round((1.6 * log(N)/log(m)));
     }
 }
 

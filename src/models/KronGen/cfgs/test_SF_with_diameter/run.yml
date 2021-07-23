@@ -13,7 +13,7 @@ parameter_space:
     create_graph:
       mean_degree: !sweep
         default: 20
-        values: [4, 5, 6, 8, 10, 20]
+        values: [2, 3, 4, 5, 6, 8, 10, 20]
       num_vertices: 500
       model: KronGen
       KronGen:

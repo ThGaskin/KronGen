@@ -25,6 +25,5 @@ parameter_space:
     NetworkAnalyser:
       <<: *run_defaults
       graph_analysis:
-        degree: false
         diameter: true
         clustering_global: true

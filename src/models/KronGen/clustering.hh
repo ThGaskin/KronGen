@@ -43,15 +43,6 @@ double err_func(const std::vector<double> err_terms) {
     return sqrt(err);
 }
 
-/// Diameter error
-double diameter_error(const double diam_1, const double diam_target) {
-    const double err = (diam_1 > diam_target and diam_target > 0)
-      ? rel_err(diam_1, diam_target)
-      : 0;
-
-    return err;
-}
-
 /// Create a graph with a given clustering
 /**
   *\ param K                The graph to be returned, passed down from previous
@@ -65,7 +56,6 @@ double diameter_error(const double diam_1, const double diam_target) {
   * \param calculate_diam   Whether or not to calculate the diameter
   * \param tolerance        Tolerance in adjusting the graph properties
   * \param rng              The model rng
-  * \param distr            Uniform real distribution
   * \param log              The model loggger
  */
 template<typename Graph, typename RNGType, typename Logger>
@@ -79,7 +69,6 @@ void create_clustering_graph(Graph& K,
                              const bool calculate_diam,
                              const double tolerance,
                              RNGType& rng,
-                             std::uniform_real_distribution<double>& distr,
                              const Logger& log)
 {
 
@@ -149,7 +138,7 @@ void create_clustering_graph(Graph& K,
     double error = err_func(
         {rel_err(ds_G.first, m_target),
          rel_err(c_G, c),
-         diameter_error(diam_G, d)}
+         rel_err(std::max(diam_G, d), d)}
     );
 
     // Output base graph property info
@@ -266,7 +255,7 @@ void create_clustering_graph(Graph& K,
                             {rel_err(n_fac*N_H_temp, N_target),
                              rel_err((ds_T.first+1)*(m_H_temp+1), m_target+1),
                              rel_err(predicted_c_K, c),
-                             diameter_error(std::max(diam_T, diam_H_temp), d)});
+                             rel_err(std::max({diam_T, diam_H_temp, d}), d)});
 
                         // If the current graph reduces the error: set graph factor
                         // values to current state in order to later reproduce the
@@ -385,7 +374,7 @@ void create_clustering_graph(Graph& K,
     // Combine G with graph from previous assembly, if given
     if (d > 1){
         log->info("Kronecker product of G with component from previous assembly ...");
-        G = Utils::Kronecker_product(K, G, rng, distr);
+        G = Utils::Kronecker_product(K, G);
     }
 
     // ... Create Kronecker graph and write properties .........................
@@ -393,7 +382,7 @@ void create_clustering_graph(Graph& K,
         K = G;
     }
     else {
-        K = Utils::Kronecker_product(G, H, rng, distr);
+        K = Utils::Kronecker_product(G, H);
     }
 
     if (calculate_c) {

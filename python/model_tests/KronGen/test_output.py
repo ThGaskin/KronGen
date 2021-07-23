@@ -61,8 +61,8 @@ def test_run_and_eval_cfgs():
             continue
 
         print("\nRunning '{}' example ...".format(cfg_name))
-
-        mv, dm = mtc.create_run_load(from_cfg=cfg_paths.get('run'))
+        
+        mv, dm = mtc.create_run_load(from_cfg=cfg_paths.get('run'), perform_sweep=True)
         mv.pm.plot_from_cfg(plots_cfg=cfg_paths.get('eval'))
 
         print("Succeeded running and evaluating '{}'.\n".format(cfg_name))

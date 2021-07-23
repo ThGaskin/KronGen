@@ -41,7 +41,6 @@ Graph create_Kronecker_graph(const Config& cfg,
                              const Config& analysis_cfg = YAML::Node(YAML::NodeType::Map))
 {
     log->info("Creating Kronecker graph");
-    std::uniform_real_distribution<double> distr(0, 1);
 
     // ... Create graph with one vertex and a self-edge ........................
     Graph K{1};
@@ -90,7 +89,7 @@ Graph create_Kronecker_graph(const Config& cfg,
 
         Utils::add_self_edges(G);
 
-        K = Utils::Kronecker_product(K, G, rng, distr);
+        K = Utils::Kronecker_product(K, G);
     }
 
     // Remove self-loops
@@ -123,7 +122,6 @@ Graph create_KronGen_graph(const Config& cfg,
                            const Logger& log,
                            const Config& analysis_cfg = YAML::Node(YAML::NodeType::Map))
 {
-    std::uniform_real_distribution<double> distr(0, 1);
 
     // ... Get topological properties ..........................................
     const double N = get_as<double>("num_vertices", cfg);
@@ -200,20 +198,20 @@ Graph create_KronGen_graph(const Config& cfg,
     // ... Create graph with given diameter ....................................
     Graph K{1};
     Utils::add_self_edges(K);
+    const double tolerance = get_as<double>("tolerance", cfg["KronGen"]);
 
     if (diameter > 0) {
 
         Diameter::create_diameter_graph(K, N, m, c, diameter, degree_distr,
-                                        calculate_c, calculate_diam,
-                                        rng, distr, log);
+                                        calculate_c, calculate_diam, tolerance,
+                                        rng, log);
     }
 
     // ... Create graph with given clustering coefficient ......................
     if (c != -1) {
-        const double tolerance = get_as<double>("tolerance", cfg["KronGen"]);
         Clustering::create_clustering_graph(K, N, m, c, diameter, degree_distr,
                                             calculate_c, calculate_diam, tolerance,
-                                            rng, distr, log);
+                                            rng, log);
     }
 
     // .........................................................................
