@@ -11,7 +11,9 @@ parameter_space:
   KronGen:
     create_graph:
       num_vertices: 300
-      mean_degree: 10
+      mean_degree: !sweep
+        default: 10
+        values: [10]
       model: ErdosRenyi
 
     NetworkAnalyser:

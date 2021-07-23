@@ -117,7 +117,7 @@ Graph create_second_Kronecker_factor(const double N,
 
     // If no second Kronecker factor is possible: discard the first factor and
     // return
-    if (m_H < 1) {
+    if (m_H < 1 or (degree_distr == "scale-free" and m_H < 3)) {
         discard_first_factor = true;
         return H;
     }
@@ -131,15 +131,8 @@ Graph create_second_Kronecker_factor(const double N,
     // To do: this can all be integrated into one grid search
     if (estimated_diameter <= d) {
         if (degree_distr == "scale-free") {
-            if (m_H < 3) {
-                discard_first_factor = true;
-                log->info("Mean degree {} too small; discarding.", m_H);
-                return H;
-            }
-            else {
-                log->info("Result: scale-free graph with {} vertices, mean degree {}", N_H, m_H);
-                H = create_BarabasiAlbert_graph<Graph>(N_H, m_H, false, rng);
-            }
+            log->info("Result: scale-free graph with {} vertices, mean degree {}", N_H, m_H);
+            H = create_BarabasiAlbert_graph<Graph>(N_H, m_H, false, rng);
         }
         else {
             log->info("Result: random graph with {} vertices, mean degree {}", N_H, m_H);
@@ -310,7 +303,7 @@ void create_diameter_graph (Graph& K,
     log->info("Assembling diameter component ... ");
 
     // Extreme case: mean degree less than 3
-    if (m <= 3) {
+    if (m <= 3.0) {
         log->info("Mean degree < 3; returning star graph component with {} vertices, "
                   " mean degree {}", N, m);
         K = AuxGraphs::create_star_graph<Graph>(N, m, d, rng);
