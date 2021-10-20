@@ -40,7 +40,7 @@ double err_func(const std::vector<double> err_terms) {
         err += pow(x, 2);
     }
 
-    return sqrt(err);
+    return err;
 }
 
 /// Create a graph with a given clustering
