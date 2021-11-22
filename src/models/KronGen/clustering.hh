@@ -22,15 +22,47 @@
 namespace Utopia::Models::KronGen::Clustering {
 
 using namespace boost;
+using namespace std;
 using namespace Utopia::Models::KronGen;
 using namespace Utopia::Models::KronGen::Utils;
 using namespace Utopia::Models::NetworkAnalyser;
 
 // ... Grid search utility functions ...........................................
+// Clustering objective function for random graphs
+double clustering_err_ER (const double c_t, const factor N, const factor k) {
+
+    if (N.size() != k.size()) {
+      throw std::invalid_argument("Number of N and k factors do not match");
+    }
+
+    // calculate graph degree variances and clustering coefficients
+    std::vector<double> clustering_coefficients, variances;
+    for (size_t i = 0; i<N.size(); ++i){
+        clustering_coefficients.emplace_back(Utils::ER_clustering(N[i], k[i]));
+        variances.emplace_back(Utils::ER_variance(N[i], k[i]));
+    }
+
+    //
+    double c_current = clustering_coefficients[0];
+    double v_current = variances[0];
+    double k_current = k[0];
+    for (size_t i = 1; i<N.size(); ++i){
+
+        c_current = Utils::Kronecker_clustering(c_current, clustering_coefficients[i],
+                                                k_current, k[i],
+                                                v_current, variances[i]);
+        v_current = Utils::Kronecker_degree_variance(k_current, k[i], v_current, variances[i]);
+        k_current = Utils::Kronecker_mean_degree(k_current, k[i]);
+    }
+
+    return Utils::err_func(c_current, c_t);
+}
+
+/// Clustering objective function
 /// Relative error of variable x to y
 double rel_err(const double x, const double y) {
 
-    return std::abs(1.-x/y);
+    return abs(y-x);
 }
 
 /// Square mean of a list of errors
@@ -184,7 +216,7 @@ void create_clustering_graph(Graph& K,
                 else {
                     T = Utopia::Graph::create_ErdosRenyi_graph<Graph>(
                         n_fac, m_fac, false, false, rng);
-                    c_T = m_fac/(n_fac-1); // this can cause problems ...
+                    c_T = Utils::ER_clustering(n_fac, m_fac);
                 }
 
                 const auto ds_T = degree_statistics(T);

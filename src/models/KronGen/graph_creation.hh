@@ -17,6 +17,7 @@
 #include "aux_graphs.hh"
 #include "clustering.hh"
 #include "diameter.hh"
+#include "grid_search.hh"
 #include "../NetworkAnalyser/graph_metrics.hh"
 #include "utils.hh"
 
@@ -25,6 +26,9 @@ namespace Utopia::Models::KronGen::GraphCreation {
 using namespace boost;
 using namespace Utopia::Models::KronGen;
 using namespace Utopia::Models::NetworkAnalyser;
+
+using factor = typename std::vector<std::size_t>;
+using factors = typename std::vector<std::vector<std::size_t>>;
 
 /// Returns the Kronecker product of a list of graphs
 /**
@@ -131,7 +135,7 @@ Graph create_KronGen_graph(const Config& cfg,
     double diameter = -1;
 
     try {
-        c = get_as<double>("clustering_coeff", cfg["KronGen"]);
+        c = get_as<double>("clustering", cfg["KronGen"]);
     }
     catch(Utopia::KeyError&){}
 
@@ -198,20 +202,144 @@ Graph create_KronGen_graph(const Config& cfg,
     // ... Create graph with given diameter ....................................
     Graph K{1};
     Utils::add_self_edges(K);
+
     const double tolerance = get_as<double>("tolerance", cfg["KronGen"]);
 
-    if (diameter > 0) {
+    // new grid search
+    if (degree_distr != "scale-free") {
+        std::vector<double> target_params = {N, m};
+        std::vector<std::function<double(double, factor, factor)>> obj_func = {Utils::N_err, Utils::k_err};
+        std::vector<double> weights = {1, 1};
+        // collect target parameters
+        if (c!=-1) {
+            target_params.emplace_back(c);
+            obj_func.emplace_back(Clustering::clustering_err_ER);
+            weights.emplace_back(1);
+        }
+        // .............................................................
+        std::pair<int, int> diameter_params = {-1, -1};
+        std::vector<std::pair<bool, int>> chain_props;
+        // .............................................................
 
-        Diameter::create_diameter_graph(K, N, m, c, diameter, degree_distr,
-                                        calculate_c, calculate_diam, tolerance,
-                                        rng, log);
+        if (diameter!=-1){
+            target_params.emplace_back(diameter);
+            obj_func.emplace_back(Diameter::diameter_err_ER);
+            weights.emplace_back(1.);
+            // .............................................................
+            diameter_params = std::make_pair(weights.size()-1, diameter);
+            // .............................................................
+
+        }
+
+        // pass to grid search
+        const size_t d_min = get_as<size_t>("min_dimension", cfg["KronGen"]);
+        const size_t d_max = get_as<size_t>("max_dimension", cfg["KronGen"]);
+        const auto grid_center = std::make_pair(N, m);
+        const auto res = GridSearch::grid_search_ER(d_min,
+                                                    d_max,
+                                                    grid_center,
+                                                    target_params,
+                                                    obj_func,
+                                                    weights,
+                                                    tolerance,
+                                                    log,
+                                                    diameter_params,
+                                                    chain_props);
+        log->info("Grid search complete. Found {} Pareto point(s).", res.size());
+
+        // if multiple Pareto points found, randomly pick one
+        std::uniform_real_distribution<double> prob_distr;
+        const size_t rdm_pt = std::round(prob_distr(rng) * (res.size()-1));
+        const auto N_factors = res[rdm_pt].first;
+        const auto k_factors = res[rdm_pt].second;
+
+        // .............................................................
+        std::pair<bool, int> chain = {false, -1};
+        if (chain_props.size()>0) {
+            chain = chain_props[rdm_pt];
+        }
+        // .............................................................
+
+        log->info("Number of Kronecker factors: {}. Number of chains: {}", N_factors.size(), chain_props.size());
+
+        double c_res = -1;
+        double diam_res = -1;
+        double var_res = -1;
+        double k_res = 0;
+        for (int i = 0; i<N_factors.size(); ++i) {
+
+            // Calculate properties
+            const auto n_curr = N_factors[i];
+            const auto k_curr = k_factors[i];
+            double c_curr;
+            if (k_curr == 0 or n_curr == 1) { continue;}
+            // Create graph
+            Graph H;
+            // .............................................................
+            if (chain.first == true and i == chain.second and k_curr ==2) {
+                H = AuxGraphs::create_chain_graph<Graph>(n_curr);
+                c_curr = 0;
+                log->info("Factor {} is chain", i);
+            }
+            // .............................................................
+            else if (n_curr > 2) {
+                if (k_curr == n_curr -1) {
+                    H = Utopia::Graph::create_complete_graph<Graph>(n_curr);
+                    c_curr = 1;
+                }
+                else {
+                    H = Utopia::Graph::create_ErdosRenyi_graph<Graph>(n_curr, k_curr, false,
+                                                                    false, rng);
+                    c_curr = Clustering::ER_clustering(n_curr, k_curr);
+                }
+            }
+            else{
+                H = Utopia::Graph::create_complete_graph<Graph>(2);
+                c_curr = 1;
+            }
+
+            const auto var_curr = degree_statistics(H).second;
+            const auto diam_curr = Utopia::Models::NetworkAnalyser::diameter(H);
+            log->debug("Current factor: N={}, k={}, c={}, d={}", n_curr, k_curr, c_curr, diam_curr);
+            // Create properties of Kronecker product
+            if (c_res == -1) {
+                c_res = c_curr;
+                var_res = var_curr;
+            }
+            else {
+                c_res = Utils::Kronecker_clustering(c_res, c_curr,
+                                                    k_res, k_curr,
+                                                    var_res, var_curr);
+                var_res = Utils::Kronecker_degree_variance(k_res, k_curr, var_res, var_curr);
+
+            }
+            k_res = Utils::Kronecker_mean_degree(k_res, k_curr);
+            diam_res = std::max(diam_res, diam_curr);
+
+            // Add self-edges
+            Utils::add_self_edges(H);
+            K = Utils::Kronecker_product(K, H);
+
+        }
+        K[0].state.clustering_global = c_res;
+        K[0].state.diameter = diam_res;
     }
 
-    // ... Create graph with given clustering coefficient ......................
-    if (c != -1) {
-        Clustering::create_clustering_graph(K, N, m, c, diameter, degree_distr,
+    else {
+
+        if (diameter > 0) {
+
+            Diameter::create_diameter_graph(K, N, m, c, diameter, degree_distr,
                                             calculate_c, calculate_diam, tolerance,
                                             rng, log);
+        }
+
+        // ... Create graph with given clustering coefficient ......................
+        if (c != -1) {
+            Clustering::create_clustering_graph(K, N, m, c, diameter, degree_distr,
+                                                calculate_c, calculate_diam, tolerance,
+                                                rng, log);
+        }
     }
 
     // .........................................................................

@@ -15,6 +15,8 @@
 namespace Utopia::Models::KronGen::Utils {
 
 using namespace std;
+using factor = typename std::vector<std::size_t>;
+using factors = typename std::vector<std::vector<std::size_t>>;
 using pair_pt = typename std::pair<std::pair<size_t, double>, std::pair<size_t, double>>;
 using vector_pt = typename std::vector<pair<size_t, size_t>>;
 
@@ -85,6 +87,13 @@ double Kronecker_degree_variance (const double g,
                                   const double v_h)
 {
     return (v_g*v_h + pow(1+g, 2)*v_h + pow(1+h, 2)*v_g);
+}
+
+/// Calculate the degree distribution variance of an Erdos-Renyi random graph
+/// with N vertices and mean degree k
+double ER_degree_variance (const size_t N, const double k) {
+
+    return k*(1-k/(N-1));
 }
 
 /// Caclulate the required mean degree of a Kronecker factor, given the target
@@ -211,7 +220,183 @@ void calculate_properties(Graph& h,
     }
 }
 
-// ... Utility functions .......................................................
+// ... Grid search utility functions ...........................................
+// Returns pairs of positive integer factors, including (1, N) if specified
+factors get_factors (const size_t N, const bool include_trivial=true) {
+
+    factors res {{1, N}};
+    if (not include_trivial){
+        res.pop_back();
+    }
+    const size_t limit = int(sqrt(N));
+    res.reserve(limit);
+
+    for (size_t i = 2; i < limit; ++i) {
+        if (not (N%i)) {
+            const factor t = {i, static_cast<size_t>(N/i)};
+            res.emplace_back(t);
+        }
+    }
+
+    return res;
+}
+
+// Returns pairs of positive integers such that (i+1)(j+1)=(k+1),
+// including (0, k) if specified
+factors get_k_factors (size_t k, const bool include_trivial=true) {
+
+    factors res {{0, k-1}};
+    if (not include_trivial){
+        res.pop_back();
+    }
+    const size_t limit = int(sqrt(k+1));
+    res.reserve(limit);
+
+    for (size_t i = 1; i < limit; ++i) {
+        if (not ((k+1)%(i+1))) {
+            const factor t = {i, static_cast<size_t>((k+1)/(i+1)-1)};
+            res.emplace_back(t);
+        }
+    }
+
+    return res;
+}
+
+// Returns d-tuples of positive integer factors of N, including reducible
+// tuples (1, 1, 1, ..., q1, ..., qd) if specified
+/*
+ * \param val           The natural number to factorise
+ * \param factor_func   The factorisation function
+ * \param d             The number of factors
+ * \param include_ones  Whether or not to include reducible tuples (this
+                        effectively means including all factors up to d)
+ * \returns res         A list of tuples
+ */
+factors get_d_factors (const size_t val,
+                       factors (*factor_func)(size_t, bool),
+                       const size_t d_min,
+                       const size_t d_max,
+                       const bool include_ones)
+{
+    if (d_max < 2) {
+        return {{}};
+    }
+
+    auto res = factor_func(val, true);
+
+    if (res.size() == 1 or d_max == 2){
+        return res;
+    }
+
+
+    auto current_to_do = res;
+    factors current_done = {{}};
+    current_to_do.erase(current_to_do.begin());
+    for (size_t p = 3; p <= d_max; ++p){
+        current_done = {};
+
+        for (const auto& fac: current_to_do) {
+            for (size_t i=0; i<fac.size(); ++i) {
+                const auto x = factor_func(fac[i], false);
+                for (const auto& xx: x) {
+                    factor q = factor(fac.begin(), fac.begin()+i); // i-1 ?
+                    q.insert(q.end(), xx.begin(), xx.end());
+                    q.insert(q.end(), fac.begin()+(i+1), fac.end());
+                    sort(q.begin(), q.end());
+                    bool already_in = false;
+                    for (const auto& c : current_done) {
+                        if (c == q) {
+                            already_in = true;
+                            break;
+                        }
+                    }
+                    if (not already_in) {
+                        current_done.emplace_back(q);
+                    }
+                }
+            }
+        }
+        if (include_ones and p > d_min) {
+            res.insert(res.end(), current_done.begin(), current_done.end());
+        }
+        else {
+            res = current_done;
+        }
+        current_to_do = current_done;
+    }
+
+    return res;
+}
+
+// Get a grid of d-factors (including reducible factors) for a given error range
+/*
+ * \param target        The grid center
+ * \param factor_func   The factorisation function
+ * \param err           The maximum grid boundary, given as a relative error of
+                        the grid center
+ * \param d             The max factorisation length
+ */
+factors get_grid (const size_t grid_center,
+                  factors (*factor_func)(size_t, bool),
+                  const double err,
+                  const size_t d_min,
+                  const size_t d_max)
+{
+    factors res = {};
+    auto delta = int(grid_center*err);
+    for (size_t i = grid_center - delta; i <= grid_center + delta; ++i) {
+        const auto t = get_d_factors(i, factor_func, d_min, d_max, true);
+        res.insert(res.end(), t.begin(), t.end());
+    }
+
+    return res;
+}
+
+// Return the N-grid (using standard factorisation)
+factors get_N_grid (const size_t grid_center,
+                    const double err,
+                    const size_t d_min,
+                    const size_t d_max)
+{
+    return get_grid(grid_center, get_factors, err, d_min, d_max);
+}
+
+// Return the k-grid
+factors get_k_grid (const size_t grid_center,
+                    const double err,
+                    const size_t d_min,
+                    const size_t d_max)
+{
+    return get_grid(grid_center, get_k_factors, err, d_min, d_max);
+}
+
+// Error norm
+double err_func(double x, double y) {
+    return std::abs(1-x/y); // L1 norm
+    //return pow((1-x/y), 2); //L2 norm
+}
+
+// Objective function for N
+double N_err (double N_t, factor N, factor k) {
+    double N_res = 1.0;
+    for (const auto& n : N) {
+        N_res *= n;
+    }
+
+    return err_func(N_res, N_t);
+}
+
+// Objective function for k
+double k_err (double k_t, factor N, factor k) {
+    double k_res = 1.0;
+    for (const auto& kk : k) {
+        k_res *= (kk+1);
+    }
+
+    return err_func(k_res, k_t);
+}
+
+// ... General utility functions ...............................................
 
 /// Add self_edges to a graph
 template<typename Graph>
@@ -351,7 +536,7 @@ double diameter_estimation (const double N, const double m) {
         return 1;
     }
     else {
-        return std::round((1.6 * log(N)/log(m)));
+        return (1.7 * log(N)/log(m));
     }
 }
 
@@ -364,6 +549,18 @@ double diameter_estimation (const double N, const double m) {
 double mean_degree_chain_graph (const double N) {
 
     return (2*(N-1)/N);
+}
+
+/// Returns the clustering coefficient of Erdos-Renyi random graph
+double ER_clustering (const double N, const double k) {
+
+    if (N == 1) {return 0;} // undefined, but resulting Kronecker c does not depend on this
+    return (k/(N-1));
+}
+
+double ER_variance (const double N, const double k) {
+    if (N == 1) {return 0;}
+    return k*(1-k/(N-1));
 }
 
 /// Returns the clustering coefficient of regular graph

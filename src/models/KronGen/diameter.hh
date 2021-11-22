@@ -17,9 +17,28 @@ namespace Utopia::Models::KronGen::Diameter {
 
 using namespace boost;
 using namespace Utopia::Models::KronGen;
+using namespace Utopia::Models::KronGen::Utils;
 using namespace Utopia::Models::NetworkAnalyser;
 
 /// ... Methods used in creating a graph with a given diameter .................
+// Diameter objective function for random graphs
+double diameter_err_ER (const double d_t, const factor N, const factor k) {
+
+    if (N.size() != k.size()) {
+      throw std::invalid_argument("Number of N and k factors do not match");
+    }
+
+    double d = 0;
+    for (size_t i = 0; i<N.size(); ++i){
+        const auto d_est = Utils::diameter_estimation(N[i], k[i]);
+        if (d_est > d) {
+            d = d_est;
+        }
+    }
+
+    return Utils::err_func(d, d_t);
+
+}
 
 /// Create the first Kronecker factor. Returns a graph with self-edges on every
 /// node.
