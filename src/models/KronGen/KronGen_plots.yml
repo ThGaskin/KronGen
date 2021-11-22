@@ -3,20 +3,66 @@ _:
   sweep_parameter: &sweep_param
     select_and_combine:
       fields:
-        diameter:
+        clustering:
           path: cfg/NetworkAnalyser
   x_coord: &x_coord
-    x: diameter
+    x: clustering
   x_label: &x_label
     x: Target diameter
 
 # ... Clustering over sweep parameter ..........................................
 clustering:
-  based_on: clustering
+  based_on: clustering_target
   <<: [*sweep_param, *x_coord]
   helpers:
     set_labels:
       <<: *x_label
+
+c_err:
+  based_on: error_bar_plot
+  select_and_combine:
+    fields:
+      data_val:
+        path: data/KronGen/NetworkAnalyser/graph_data/clustering_global
+        transform:
+          - operation: .isel
+            args: [!dag_prev ]
+            kwargs:
+              time: -1
+  helpers:
+    set_title:
+      title: Clustering coefficient
+    set_labels:
+      <<: *x_label
+      y: Number of vertices
+    set_limits:
+      x: [0, 1]
+      y: [0, 1]
+
+N_err:
+  based_on: error_bar_plot
+  select_and_combine:
+    fields:
+      data_val:
+        path: data/KronGen/NetworkAnalyser/graph_data/_vertices
+        transform:
+          - operation: .isel
+            args: [!dag_prev ]
+            kwargs:
+              vertex_idx: -1
+          - add: [!dag_prev , 1]
+k_err:
+  based_on: error_bar_plot
+  select_and_combine:
+    fields:
+      data_val:
+        path: data/KronGen/NetworkAnalyser/graph_data/degree
+        transform:
+          - operation: .isel
+            args: [!dag_prev ]
+            kwargs:
+              time: -1
+          - .mean: [!dag_prev , vertex_idx]
 
 # ... Graph mean degree ........................................................
 mean_degree:
@@ -36,7 +82,7 @@ num_vertices:
 
 # ... Graph diameter ...........................................................
 diameter:
-  based_on: diameter_target
+  based_on: diameter
   <<: [*sweep_param, *x_coord]
   helpers:
     set_labels:
@@ -50,7 +96,7 @@ graph:
 # ... Network statistics .......................................................
 nw_stats:
   based_on: nw_stats
-  
+
 # ... Diameter estimate coefficient ............................................
 diameter_coeff:
   based_on: diameter_coeff

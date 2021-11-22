@@ -110,17 +110,11 @@ nw_stats_sweep:
             args: [!dag_prev ]
             kwargs:
               time: -1
-
   transform:
-    - operation: .mean
-      args: [!dag_tag param2]
-      kwargs:
-        dim: vertex_idx
+    - .mean: [!dag_tag param2, vertex_idx]
       tag: means
-    - operation: .std
-      args: [!dag_tag param2]
+    - .std: [!dag_tag param2, vertex_idx]
       kwargs:
-        dim: vertex_idx
         ddof: 1
       tag: stds
     - operation: xr.Dataset
@@ -180,7 +174,7 @@ clustering_target:
           - getitem: [!dag_prev , KronGen]
           - getitem: [!dag_prev , create_graph]
           - getitem: [!dag_prev , KronGen]
-          - getitem: [!dag_prev , clustering_coeff]
+          - getitem: [!dag_prev , clustering]
           - xr.DataArray: [!dag_prev ]
       data_val:
         path: data/KronGen/NetworkAnalyser/graph_data/clustering_global
@@ -207,10 +201,7 @@ mean_degree:
       data_val:
         path: data/KronGen/NetworkAnalyser/graph_data/degree
   transform:
-    - operation: .mean
-      args: [!dag_tag data_val]
-      kwargs:
-        dim: vertex_idx
+    - .mean: [!dag_tag data_val, vertex_idx]
       tag: data_values
     - operation: xr.Dataset
       kwargs:
@@ -331,3 +322,18 @@ diameter_coeff:
     set_labels:
       x: mean degree
       y: diam * $\log(\bar{k})/\log(N)$
+
+error_bar_plot:
+  based_on: [.dag.generic.errorbar, KronGen_default]
+  expected_multiverse_ndim: [2,3,4,5]
+  creator: multiverse
+  transform:
+    - .mean: [!dag_tag data_val, seed]
+      tag: y
+    - .std: [!dag_tag data_val, seed]
+      kwargs:
+        ddof: 1
+      tag: yerr
+
+  capsize: 0.1
+  marker: o
