@@ -15,6 +15,7 @@
 #include "utopia/data_io/graph_load.hh"
 
 #include "aux_graphs.hh"
+#include "graph_types.hh"
 #include "utils.hh"
 
 #include "../NetworkAnalyser/graph_metrics.hh"
@@ -24,22 +25,36 @@ namespace Utopia::Models::KronGen::Clustering {
 using namespace boost;
 using namespace std;
 using namespace Utopia::Models::KronGen;
+using namespace Utopia::Models::KronGen::GraphTypes;
 using namespace Utopia::Models::KronGen::Utils;
 using namespace Utopia::Models::NetworkAnalyser;
 
 // ... Grid search utility functions ...........................................
 // Clustering objective function for random graphs
-double clustering_err_ER (const double c_t, const factor N, const factor k) {
-
-    if (N.size() != k.size()) {
-      throw std::invalid_argument("Number of N and k factors do not match");
+double clustering_err (const double& c_t,
+                       const factor& N,
+                       const factor& k,
+                       const std::vector<GraphType>& t)
+{
+    if ((N.size() != k.size()) or (k.size() != t.size())) {
+      throw std::invalid_argument("Number of factors do not match!");
     }
 
     // calculate graph degree variances and clustering coefficients
     std::vector<double> clustering_coefficients, variances;
     for (size_t i = 0; i<N.size(); ++i){
-        clustering_coefficients.emplace_back(Utils::ER_clustering(N[i], k[i]));
-        variances.emplace_back(Utils::ER_variance(N[i], k[i]));
+        if (t[i] == GraphType::Chain) {
+            clustering_coefficients.emplace_back(0);
+            variances.emplace_back(Utils::variance_chain_graph(N[i]));
+        }
+        else if (t[i] == GraphType::Regular){
+            clustering_coefficients.emplace_back(Utils::regular_graph_clustering(N[i], k[i]));
+            variances.emplace_back(0);
+        }
+        else {
+            clustering_coefficients.emplace_back(Utils::ER_clustering(N[i], k[i]));
+            variances.emplace_back(Utils::ER_variance(N[i], k[i]));
+        }
     }
 
     //

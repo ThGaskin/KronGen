@@ -9,6 +9,7 @@
 
 #include "aux_graphs.hh"
 #include "clustering.hh"
+#include "graph_types.hh"
 #include "utils.hh"
 
 #include "../NetworkAnalyser/graph_metrics.hh"
@@ -17,20 +18,34 @@ namespace Utopia::Models::KronGen::Diameter {
 
 using namespace boost;
 using namespace Utopia::Models::KronGen;
+using namespace Utopia::Models::KronGen::GraphTypes;
 using namespace Utopia::Models::KronGen::Utils;
 using namespace Utopia::Models::NetworkAnalyser;
 
 /// ... Methods used in creating a graph with a given diameter .................
 // Diameter objective function for random graphs
-double diameter_err_ER (const double d_t, const factor N, const factor k) {
-
-    if (N.size() != k.size()) {
-      throw std::invalid_argument("Number of N and k factors do not match");
+double diameter_err (const double& d_t,
+                     const factor& N,
+                     const factor& k,
+                     const std::vector<GraphType>& t)
+{
+    if ((N.size() != k.size()) or (k.size() != t.size())) {
+      throw std::invalid_argument("Number of factors do not match!");
     }
 
     double d = 0;
     for (size_t i = 0; i<N.size(); ++i){
-        const auto d_est = Utils::diameter_estimation(N[i], k[i]);
+        size_t d_est;
+        if (t[i] == GraphType::Chain) {
+            d_est = N[i]-1;
+        }
+        else if (t[i] == GraphType::Regular){
+            d_est =1.3*N[i] / k[i]; // better estimate here
+        }
+        else {
+            d_est = Utils::diameter_estimation(N[i], k[i]);
+        }
+
         if (d_est > d) {
             d = d_est;
         }

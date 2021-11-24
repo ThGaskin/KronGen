@@ -10,11 +10,14 @@
 
 #include "utopia/core/graph/iterator.hh"
 
+#include "graph_types.hh"
 #include "../NetworkAnalyser/graph_metrics.hh"
 
 namespace Utopia::Models::KronGen::Utils {
 
 using namespace std;
+using namespace Utopia::Models::KronGen::GraphTypes;
+
 using factor = typename std::vector<std::size_t>;
 using factors = typename std::vector<std::vector<std::size_t>>;
 using pair_pt = typename std::pair<std::pair<size_t, double>, std::pair<size_t, double>>;
@@ -370,32 +373,6 @@ factors get_k_grid (const size_t grid_center,
     return get_grid(grid_center, get_k_factors, err, d_min, d_max);
 }
 
-// Error norm
-double err_func(double x, double y) {
-    return std::abs(1-x/y); // L1 norm
-    //return pow((1-x/y), 2); //L2 norm
-}
-
-// Objective function for N
-double N_err (double N_t, factor N, factor k) {
-    double N_res = 1.0;
-    for (const auto& n : N) {
-        N_res *= n;
-    }
-
-    return err_func(N_res, N_t);
-}
-
-// Objective function for k
-double k_err (double k_t, factor N, factor k) {
-    double k_res = 1.0;
-    for (const auto& kk : k) {
-        k_res *= (kk+1);
-    }
-
-    return err_func(k_res, k_t);
-}
-
 // ... General utility functions ...............................................
 
 /// Add self_edges to a graph
@@ -532,6 +509,9 @@ double diameter_estimation (const double N, const double m) {
     else if (m == 1) {
         return (N-1);
     }
+    else if (m == N-1) {
+        return 1;
+    }
     else if (N == 2) {
         return 1;
     }
@@ -543,12 +523,19 @@ double diameter_estimation (const double N, const double m) {
 /// Returns the mean degree of a 1-d chain of length N
 /**
   * \param N    The length of the chain
-  *
-  * \return m   The mean degree of the graph
-*/
+  */
 double mean_degree_chain_graph (const double N) {
 
     return (2*(N-1)/N);
+}
+/// Returns the degree variance of a 1-d chain of length N
+/**
+  * \param N    The length of the chain
+  */
+double variance_chain_graph (const double N) {
+
+    const double k = mean_degree_chain_graph(N);
+    return (1/N * (2*pow((1-k), 2) + (N-2)*pow((2-k), 2)));
 }
 
 /// Returns the clustering coefficient of Erdos-Renyi random graph
@@ -582,6 +569,47 @@ double regular_graph_clustering(const double& N, const double& m) {
     }
 
     return (T /(m/2*(m-1)));
+}
+
+
+// ... Objective functions .....................................................
+
+// Error norm
+double err_func(double x, double y) {
+    return std::abs(1-x/y); // L1 norm
+    //return pow((1-x/y), 2); //L2 norm
+}
+
+// Objective function for N
+double N_err (const double& N_t,
+              const factor& N,
+              const factor& k,
+              const std::vector<GraphType>& t) {
+    double N_res = 1.0;
+    for (const auto& n : N) {
+        N_res *= n;
+    }
+
+    return err_func(N_res, N_t);
+}
+
+// Objective function for k
+double k_err (const double& k_t,
+              const factor& N,
+              const factor& k,
+              const std::vector<GraphType>& t) {
+    double k_res = 1.0;
+    for (size_t i = 0; i < k.size(); ++i) {
+        if (t[i] == GraphType::Chain) {
+          k_res *= (mean_degree_chain_graph(N[i])+1);
+        }
+        else {
+          k_res *= (k[i]+1);
+        }
+
+    }
+
+    return err_func(k_res, k_t);
 }
 
 }
