@@ -20,6 +20,8 @@ def network_stats(dm: DataManager, *,
 
     data = uni['data']['KronGen']['NetworkAnalyser']['graph_data']
     plots = ['num_vertices']+list(data.keys())[2:] # discard vertices and edges
+    if ('optimisation_error' in plots):
+        plots.remove('optimisation_error')
     n_plots = len(plots)
 
     # .. Setup the figure with two columns and as many rows as necessary .......

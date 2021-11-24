@@ -158,9 +158,7 @@ clustering:
       tag: data
   helpers:
     set_title:
-      title: Network clustering coefficient (global)
-    set_labels:
-      y: Clustering coefficient $c$
+      title: Clustering coefficient $c$
     set_limits:
       y: [0, 1]
 
@@ -180,11 +178,32 @@ clustering_target:
         path: data/KronGen/NetworkAnalyser/graph_data/clustering_global
   helpers:
     set_title:
-      title: Network clustering coefficient (global)
-    set_labels:
-      y: Clustering coefficient $c$
+      title: Clustering coefficient $c$
     set_limits:
       y: [0, 1]
+
+# ... Optimisation error .......................................................
+error:
+  based_on: sweep_stats
+  select_and_combine:
+    fields:
+      data_val:
+        path: data/KronGen/NetworkAnalyser/graph_data/optimisation_error
+        transform:
+          - operation: .isel
+            args: [!dag_prev ]
+            kwargs:
+              time: -1
+  transform:
+    - operation: .isel
+      args: [!dag_tag data_val]
+      tag: data
+  helpers:
+    set_title:
+      title: Optimisation error $H$
+    set_labels:
+      x: Target parameter
+      y: Error
 
 # ... Graph mean degree ........................................................
 mean_degree:
@@ -211,9 +230,7 @@ mean_degree:
       tag: data
   helpers:
     set_title:
-      title: Mean degree
-    set_labels:
-      y: Mean degree $\bar{k}$
+      title: Mean degree $\bar{k}$
 
 # ... Graph number of vertices .................................................
 num_vertices:
@@ -237,9 +254,7 @@ num_vertices:
           - add: [!dag_prev , 1]
   helpers:
     set_title:
-      title: Number of vertices
-    set_labels:
-      y: Number of vertices $N$
+      title: Number of vertices $N$
 
 # ... Graph diameter ...........................................................
 diameter:
@@ -259,9 +274,7 @@ diameter:
       tag: data
   helpers:
     set_title:
-      title: Network diameter
-    set_labels:
-      y: Diameter $d$
+      title: Diameter $d$
 
 diameter_target:
   based_on: data_target_comp
@@ -279,9 +292,7 @@ diameter_target:
         path: data/KronGen/NetworkAnalyser/graph_data/diameter
   helpers:
     set_title:
-      title: Network diameter
-    set_labels:
-      y: Diameter $d$
+      title: Diameter $d$
 
 diameter_coeff:
   based_on: sweep_stats
@@ -293,14 +304,14 @@ diameter_coeff:
           - getitem: [!dag_prev , KronGen]
           - getitem: [!dag_prev , create_graph]
           - getitem: [!dag_prev , mean_degree]
-          - xr.: [ufuncs.log, !dag_prev ]
+          - xr.DataArray: [!dag_prev ] # xr.: [ufuncs.log, !dag_prev ]
       N:
         path: cfg
         transform:
           - getitem: [!dag_prev , KronGen]
           - getitem: [!dag_prev , create_graph]
           - getitem: [!dag_prev , num_vertices]
-          - xr.: [ufuncs.log, !dag_prev ]
+          - xr.DataArray: [!dag_prev ]
       diameter:
         path: data/KronGen/NetworkAnalyser/graph_data/diameter
         transform:

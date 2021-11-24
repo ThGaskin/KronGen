@@ -3,12 +3,13 @@ _:
   sweep_parameter: &sweep_param
     select_and_combine:
       fields:
-        clustering:
+        diameter:
           path: cfg/NetworkAnalyser
   x_coord: &x_coord
-    x: clustering
+    x: diameter
   x_label: &x_label
-    x: Target diameter
+    x: Target
+    y: Output
 
 # ... Clustering over sweep parameter ..........................................
 clustering:
@@ -82,11 +83,16 @@ num_vertices:
 
 # ... Graph diameter ...........................................................
 diameter:
-  based_on: diameter
+  based_on: diameter_target
   <<: [*sweep_param, *x_coord]
   helpers:
     set_labels:
       <<: *x_label
+
+# ... Optimisation error ........................................................
+error:
+  based_on: error
+  <<: [*sweep_param, *x_coord]
 
 # ... Graph plot ...............................................................
 graph:

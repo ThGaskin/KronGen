@@ -50,6 +50,9 @@ const std::pair<vector, vector> get_centralities(const GraphType& g)
 template <typename GraphType>
 double global_clustering_coeff(const GraphType& g)
 {
+    if (num_vertices(g) == 2 and num_edges(g) == 1) {
+      return 0;
+    }
     std::size_t num_triangles = 0;
     std::size_t degree_sum = 0;
     for (const auto v : range<IterateOver::vertices>(g)) {

@@ -63,6 +63,9 @@ struct VertexState
     double clustering_global = -1;
     double diameter = -1;
 
+    // optimisation error
+    double error;
+
 };
 
 /// The traits of a vertex are just the traits of a graph entity
