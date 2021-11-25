@@ -3,6 +3,7 @@
 
 namespace Utopia::Models::KronGen::GraphTypes{
 
+// All possible graph types considered
 enum GraphType {
     Chain,
     Complete,
@@ -10,12 +11,14 @@ enum GraphType {
     Regular
 };
 
+// Convenient printing function for graph types
 std::string Graph_Type[] = {
     "Chain",
     "Complete",
-    "ErdosRenyi",
+    "Erdos-Renyi",
     "Regular"
 };
 
-}
-#endif
+} // namespace KronGen::GraphTypes
+
+#endif // UTOPIA_MODELS_KRONGEN_GRAPHTYPES

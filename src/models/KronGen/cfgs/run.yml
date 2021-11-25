@@ -29,12 +29,12 @@ parameter_space:
       mean_degree: 150
       model: KronGen
       KronGen:
-        diameter: !sweep
-          default: 90
-          range: [2, 90, 2]
-        clustering: 0.5
-        #   default: 0.5
-        #   linspace: [0.05, 1, 20]
+        # diameter: !sweep
+        #   default: 90
+        #   range: [2, 90, 2]
+        clustering: !sweep
+          default: 0.05
+          linspace: [0.05, 1, 11]
         tolerance: 0.1
         min_dimension: 2
         max_dimension: 10

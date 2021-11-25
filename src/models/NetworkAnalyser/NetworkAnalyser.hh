@@ -67,6 +67,8 @@ class NetworkAnalyser : public Model<NetworkAnalyser<GraphType>, ModelTypes>
     /// The optimisation error
     double _error = -1;
 
+    std::size_t _num_factors = 1;
+
     /// Whether graph analysis is enabled
     const bool _enable_analysis;
 
@@ -84,6 +86,7 @@ class NetworkAnalyser : public Model<NetworkAnalyser<GraphType>, ModelTypes>
     const std::pair<std::string, bool> _distance_harmonic;
     const std::pair<std::string, bool> _distance_max;
     const std::pair<std::string, bool> _err;
+    const std::pair<std::string, bool> _n_factors;
     const std::pair<std::string, bool> _reciprocity;
 
     /// Graph datagroup
@@ -101,6 +104,7 @@ class NetworkAnalyser : public Model<NetworkAnalyser<GraphType>, ModelTypes>
     const std::shared_ptr<DataSet> _dset_distance_harmonic;
     const std::shared_ptr<DataSet> _dset_distance_max;
     const std::shared_ptr<DataSet> _dset_error;
+    const std::shared_ptr<DataSet> _dset_num_factors;
     const std::shared_ptr<DataSet> _dset_reciprocity;
 
   public:
@@ -140,6 +144,7 @@ class NetworkAnalyser : public Model<NetworkAnalyser<GraphType>, ModelTypes>
         _distance_max("distance_max", get_as<bool>("distances",
                                                 this->_cfg["graph_analysis"])),
         _err("optimisation_error", true),
+        _n_factors("n_factors", true),
         _reciprocity("reciprocity", get_as<bool>("reciprocity",
                                                 this->_cfg["graph_analysis"])),
 
@@ -157,6 +162,7 @@ class NetworkAnalyser : public Model<NetworkAnalyser<GraphType>, ModelTypes>
         _dset_distance_harmonic(this->create_dataset(_distance_harmonic)),
         _dset_distance_max(this->create_dataset(_distance_max)),
         _dset_error(this->create_dataset(_err)),
+        _dset_num_factors(this->create_dataset(_n_factors)),
         _dset_reciprocity(this->create_dataset(_reciprocity))
 
   {
@@ -179,7 +185,8 @@ class NetworkAnalyser : public Model<NetworkAnalyser<GraphType>, ModelTypes>
           std::shared_ptr<DataSet> dset{};
           if (selection.first == "diameter"
            or selection.first == "clustering_global"
-           or selection.first == "optimisation_error")
+           or selection.first == "optimisation_error"
+           or selection.first == "n_factors")
           {
               dset = this->create_dset(selection.first, _dgrp_g, {});
               dset->add_attribute("dim_name__0", "time");
@@ -302,6 +309,10 @@ class NetworkAnalyser : public Model<NetworkAnalyser<GraphType>, ModelTypes>
             _error = _g[0].state.error;
         }
 
+        if (_n_factors.second){
+            _num_factors = _g[0].state.num_factors;
+        }
+
         this->_log->info("Graph analysis complete.");
 
       }
@@ -366,6 +377,10 @@ class NetworkAnalyser : public Model<NetworkAnalyser<GraphType>, ModelTypes>
 
           if (_err.second){
               _dset_error->write(_error);
+          }
+
+          if (_n_factors.second){
+              _dset_num_factors->write(_num_factors);
           }
 
           this->_log->info ("Data written.");

@@ -182,29 +182,6 @@ clustering_target:
     set_limits:
       y: [0, 1]
 
-# ... Optimisation error .......................................................
-error:
-  based_on: sweep_stats
-  select_and_combine:
-    fields:
-      data_val:
-        path: data/KronGen/NetworkAnalyser/graph_data/optimisation_error
-        transform:
-          - operation: .isel
-            args: [!dag_prev ]
-            kwargs:
-              time: -1
-  transform:
-    - operation: .isel
-      args: [!dag_tag data_val]
-      tag: data
-  helpers:
-    set_title:
-      title: Optimisation error $H$
-    set_labels:
-      x: Target parameter
-      y: Error
-
 # ... Graph mean degree ........................................................
 mean_degree:
   based_on: data_target_comp

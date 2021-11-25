@@ -15,31 +15,34 @@
 #include "utopia/data_io/graph_load.hh"
 
 #include "aux_graphs.hh"
-#include "clustering.hh"
-#include "diameter.hh"
+#include "graph_properties.hh"
 #include "graph_types.hh"
 #include "grid_search.hh"
+#include "objective_functions.hh"
 #include "../NetworkAnalyser/graph_metrics.hh"
 #include "utils.hh"
 
 namespace Utopia::Models::KronGen::GraphCreation {
 
-using namespace boost;
 using namespace Utopia::Models::KronGen;
-using namespace Utopia::Models::KronGen::GraphTypes;
-using namespace Utopia::Models::NetworkAnalyser;
 
 using factor = typename std::vector<std::size_t>;
 using factors = typename std::vector<std::vector<std::size_t>>;
 
 /// Returns the Kronecker product of a list of graphs
 /**
+  * \tparam Graph         The graph type
+  * \tparam RNG           The rng tpye
+  * \tparam Logger        The logger type
+  *
   * \param cfg            A list of graphs to Kronecker together
-  * \param rng            The model rng
+  * \param rng            The model random number generator
   * \param log            The model logger
-  * \param analysis_cfg   The analysis config, containing the list of parameters to
-                          calculate
-*/
+  * \param analysis_cfg   The analysis config, containing the list of parameters
+                          to calculate
+  *
+  * \return Graph         The Kronecker product graphs of the factors
+  */
 template<typename Graph, typename RNGType, typename Logger>
 Graph create_Kronecker_graph(const Config& cfg,
                              RNGType& rng,
@@ -53,7 +56,7 @@ Graph create_Kronecker_graph(const Config& cfg,
     Utils::add_self_edges(K);
 
     // ... Data containers for graph analysis properties .......................
-    double c_global = -1;
+    double c = -1;
     double diam = -1;
     double mean_deg;
     double variance;
@@ -87,7 +90,7 @@ Graph create_Kronecker_graph(const Config& cfg,
                                      first_run,
                                      calculate_c,
                                      calculate_diam,
-                                     c_global,
+                                     c,
                                      diam,
                                      mean_deg,
                                      variance);
@@ -103,9 +106,9 @@ Graph create_Kronecker_graph(const Config& cfg,
 
     // Write data
     if (calculate_c) {
-        K[0].state.clustering_global = c_global;
+        K[0].state.clustering_global = c;
     }
-    if(calculate_diam) {
+    if (calculate_diam) {
         K[0].state.diameter = diam;
     }
 
@@ -114,14 +117,22 @@ Graph create_Kronecker_graph(const Config& cfg,
 
 }
 
-/// Creates a graph from a list of topological properties
+/// Creates a Kronecker graph from a list of topological properties by conducting
+/// a grid search over the specified ensemble, optimising an aggregate objective
+/// function, and returning the Pareto front.
 /**
+  * \tparam Graph         The graph type
+  * \tparam RNG           The rng tpye
+  * \tparam Logger        The logger type
+  *
   * \param cfg            A list of topological properties and tolerances
   * \param rng            The model rng
   * \param log            The model logger
   * \param analysis_cfg   The analysis config, containing the list of parameters to
                           calculate
-*/
+  *
+  * \return Graph         The resulting Kronecker graph
+  */
 template<typename Graph, typename RNGType, typename Logger>
 Graph create_KronGen_graph(const Config& cfg,
                            RNGType& rng,
@@ -131,7 +142,7 @@ Graph create_KronGen_graph(const Config& cfg,
 
     // ... Get topological properties ..........................................
     const double N = get_as<double>("num_vertices", cfg);
-    const double m = get_as<double>("mean_degree", cfg);
+    const double k = get_as<double>("mean_degree", cfg);
     double c = -1;
     std::string degree_distr = "";
     double diameter = -1;
@@ -154,10 +165,20 @@ Graph create_KronGen_graph(const Config& cfg,
     }
     catch(Utopia::KeyError&){}
 
-    // ... Get analysis targets ................................................
+    // ... Collect target parameters, objective functions, and weights .........
+    std::vector<double> target_params = {N, k};
+    std::vector<std::function<double(double, factor, factor,
+        std::vector<GraphTypes::GraphType>)>> obj_func =
+                                             {ObjectiveFuncs::N_obj_func,
+                                              ObjectiveFuncs::k_obj_func};
+    std::vector<double> weights = {1, 1};
+
     bool calculate_c = false;
     if (c != -1) {
         calculate_c = true;
+        obj_func.emplace_back(ObjectiveFuncs::clustering_obj_func);
+        target_params.emplace_back(c);
+        weights.emplace_back(1.);
     }
     else {
         try {
@@ -171,6 +192,9 @@ Graph create_KronGen_graph(const Config& cfg,
     bool calculate_diam = false;
     if (diameter != -1) {
         calculate_diam = true;
+        obj_func.emplace_back(ObjectiveFuncs::diameter_obj_func);
+        target_params.emplace_back(diameter);
+        weights.emplace_back(1.);
     }
     else {
         try {
@@ -181,174 +205,147 @@ Graph create_KronGen_graph(const Config& cfg,
         catch (Utopia::KeyError&){}
     }
 
-    // ... Graph creation ......................................................
     // Output info message with given properties
     log->info("Assembling KronGen {} graph with {} vertices, mean degree m = {}"
-               "{}{} ...", degree_distr, N, m,
-               (c != -1 ? ", clustering coefficient = "+to_string(c) : ""),
-               (diameter != -1 ? ", diameter = "+to_string(diameter) : ""));
+               "{}{} ...", degree_distr, N, k,
+               (c != -1 ? ", clustering coefficient = "+std::to_string(c) : ""),
+               (diameter != -1 ? ", diameter = "+std::to_string(diameter) : ""));
 
     // ... Create graphs when no properties are passed .........................
     if ((diameter == -1) and (c == -1)) {
 
         if (degree_distr == "scale-free") {
-            return Utopia::Graph::create_BarabasiAlbert_graph<Graph>(N, m,
+            return Utopia::Graph::create_BarabasiAlbert_graph<Graph>(N, k,
                                                                      false, rng);
         }
         else {
-            return Utopia::Graph::create_ErdosRenyi_graph<Graph>(N, m, false,
+            return Utopia::Graph::create_ErdosRenyi_graph<Graph>(N, k, false,
                                                                  false, rng);
         }
     }
+    // Ignore graphs with specified degree distribution for now
+    else if (degree_distr != "") {
 
-    // ... Create graph with given properties ..................................
+      return Utopia::Graph::create_BarabasiAlbert_graph<Graph>(N, k, false, rng);
+
+    }
+
+    // ... Create graph with given properties via grid search ..................
+    // Get grid search parameters
+    const size_t d_min = get_as<size_t>("min_dimension", cfg["KronGen"]);
+    const size_t d_max = get_as<size_t>("max_dimension", cfg["KronGen"]);
+    const double tolerance = get_as<double>("tolerance", cfg["KronGen"]);
+    const auto grid_center = std::make_pair(N, k);
+
+    // Perform grid search
+    const auto res = GridSearch::grid_search(d_min,
+                                             d_max,
+                                             grid_center,
+                                             target_params,
+                                             obj_func,
+                                             weights,
+                                             tolerance,
+                                             log);
+
+    // Collect the resulting Pareto points (consisting of N, k, and t vectors)
+    const auto Paretos = res.first;
+
+    // Collect the resulting error value (equal for all Pareto points)
+    const double error = res.second;
+
+    log->info("Grid search complete. Found {} Pareto point(s).", Paretos.size());
+
+    // If multiple Pareto points found, randomly pick one
+    std::uniform_real_distribution<double> prob_distr;
+    const size_t rdm_pt = std::round(prob_distr(rng) * (Paretos.size()-1));
+    const auto N_factors = std::get<0>(Paretos[rdm_pt]);
+    const auto k_factors = std::get<1>(Paretos[rdm_pt]);
+    const auto types = std::get<2>(Paretos[rdm_pt]);
+
+    // Keep track of number of non-trivial factors
+    auto n_factors = N_factors.size();
+
+    log->info("Number of Kronecker factors: {}.", n_factors);
+
+    // Create graph with one vertex and a self-edge
     Graph K{1};
     Utils::add_self_edges(K);
 
-    const double tolerance = get_as<double>("tolerance", cfg["KronGen"]);
-    double error;
-    // ... Grid search .........................................................
-    if (degree_distr != "scale-free") {
+    // Keep track of resulting properties as Kronecker graph is assembled
+    double c_res = -1;
+    double diam_res = -1;
+    double k_res = 0;
+    double var_res = -1;
 
-        // Collect target parameters, objective functions, and weights
-        std::vector<double> target_params = {N, m};
-        std::vector<std::function<double(double, factor, factor,
-            std::vector<GraphType>)>> obj_func = {Utils::N_err, Utils::k_err};
-        std::vector<double> weights = {1, 1};
+    for (int i = 0; i < N_factors.size(); ++i) {
 
-        // collect target parameters
-        if (c!=-1) {
-            target_params.emplace_back(c);
-            obj_func.emplace_back(Clustering::clustering_err);
-            weights.emplace_back(1.);
+        // Get graph generation parameters
+        const auto n_curr = N_factors[i];
+
+        // Calculate properties
+        double k_curr = GraphProperties::mean_degree(n_curr, k_factors[i], types[i]);
+        double c_curr = GraphProperties::clustering_estimation(n_curr, k_curr, types[i]);
+        double diam_curr = GraphProperties::diameter_estimation(n_curr, k_curr, types[i]);
+        double var_curr = GraphProperties::degree_variance(n_curr, k_curr, types[i]);
+
+        // Ignore trivial factors
+        if (k_curr == 0 or n_curr == 1) {
+          --n_factors;
+          continue;
         }
 
-        if (diameter!=-1){
-            target_params.emplace_back(diameter);
-            obj_func.emplace_back(Diameter::diameter_err);
-            weights.emplace_back(1.);
+        // Create graphs and correct estimated properties if necessary
+        Graph H;
+
+        if (types[i] == GraphTypes::Chain) {
+            H = AuxGraphs::create_chain_graph<Graph>(n_curr);
+        }
+        else if (types[i] == GraphTypes::Complete){
+            H = Utopia::Graph::create_complete_graph<Graph>(n_curr);
+        }
+        else if (types[i] == GraphTypes::ErdosRenyi) {
+            H = Utopia::Graph::create_ErdosRenyi_graph<Graph>(n_curr, k_curr,
+                                                         false, false, rng);
+            diam_curr = Utopia::Models::NetworkAnalyser::diameter(H);
+        }
+        else if (types[i] == GraphTypes::Regular) {
+            H = Utopia::Graph::create_regular_graph<Graph>(n_curr, k_curr, false);
+            c_curr = Utopia::Models::NetworkAnalyser::global_clustering_coeff(H);
+            diam_curr = Utopia::Models::NetworkAnalyser::diameter(H);
         }
 
-        // pass to grid search
-        const size_t d_min = get_as<size_t>("min_dimension", cfg["KronGen"]);
-        const size_t d_max = get_as<size_t>("max_dimension", cfg["KronGen"]);
-        const auto grid_center = std::make_pair(N, m);
-        const auto res = GridSearch::grid_search(d_min,
-                                                 d_max,
-                                                 grid_center,
-                                                 target_params,
-                                                 obj_func,
-                                                 weights,
-                                                 tolerance,
-                                                 log);
-        const auto Paretos = res.first;
-        error = res.second;
-        log->info("Grid search complete. Found {} Pareto point(s).", Paretos.size());
+        log->debug("Current factor: N={}, k={}, c={}, d={}, type={}",
+                    n_curr, k_curr, c_curr, diam_curr,
+                    GraphTypes::Graph_Type[types[i]]);
 
-        // if multiple Pareto points found, randomly pick one
-        std::uniform_real_distribution<double> prob_distr;
-        const size_t rdm_pt = std::round(prob_distr(rng) * (Paretos.size()-1));
-        const auto N_factors = std::get<0>(Paretos[rdm_pt]);
-        const auto k_factors = std::get<1>(Paretos[rdm_pt]);
-        const auto types = std::get<2>(Paretos[rdm_pt]);
-
-        log->info("Number of Kronecker factors: {}.", N_factors.size());
-
-        double c_res = -1;
-        double diam_res = -1;
-        double var_res = -1;
-        double k_res = 0;
-        for (int i = 0; i < N_factors.size(); ++i) {
-
-            // Get graph generation parameters
-            const auto n_curr = N_factors[i];
-            double k_curr = k_factors[i];
-
-            // Calculate properties
-            double diam_curr;
-            double c_curr;
-            double var_curr;
-
-            if (k_curr == 0 or n_curr == 1) { continue;}
-
-            // Create graphs
-            Graph H;
-            if (types[i] == GraphTypes::Chain) {
-                H = AuxGraphs::create_chain_graph<Graph>(n_curr);
-                c_curr = 0;
-                diam_curr = n_curr - 1;
-                const auto deg_stats = degree_statistics(H);
-                k_curr = Utils::mean_degree_chain_graph(n_curr);
-                var_curr = Utils::variance_chain_graph(n_curr);
-            }
-            else if (types[i] == GraphTypes::Complete){
-                H = Utopia::Graph::create_complete_graph<Graph>(n_curr);
-                c_curr = 1;
-                diam_curr = 1;
-                var_curr = 0;
-            }
-            else if (types[i] == GraphTypes::ErdosRenyi) {
-                H = Utopia::Graph::create_ErdosRenyi_graph<Graph>(n_curr, k_curr,
-                                                             false, false, rng);
-                c_curr = Clustering::ER_clustering(n_curr, k_curr);
-                diam_curr = Utopia::Models::NetworkAnalyser::diameter(H);
-                var_curr = Utils::ER_variance(n_curr, k_curr);
-            }
-            else if (types[i] == GraphTypes::Regular) {
-                H = Utopia::Graph::create_regular_graph<Graph>(n_curr, k_curr, false);
-                c_curr = Utopia::Models::NetworkAnalyser::global_clustering_coeff(H);
-                diam_curr = Utopia::Models::NetworkAnalyser::diameter(H);
-                var_curr = degree_statistics(H).second;
-            }
-
-            log->debug("Current factor: N={}, k={}, c={}, d={}, type={}",
-                        n_curr, k_curr, c_curr, diam_curr,
-                        GraphTypes::Graph_Type[types[i]]);
-
-            // ... Calculate properties of Kronecker product ...................
-            if (c_res == -1) {
-                c_res = c_curr;
-                var_res = var_curr;
-            }
-            else {
-                c_res = Utils::Kronecker_clustering(c_res, c_curr,
-                                                    k_res, k_curr,
-                                                    var_res, var_curr);
-                var_res = Utils::Kronecker_degree_variance(k_res, k_curr,
-                                                           var_res, var_curr);
-
-            }
-            k_res = Utils::Kronecker_mean_degree(k_res, k_curr);
-            diam_res = std::max(diam_res, diam_curr);
-
-            // ... Add self-edges and create Kronecker product .................
-            Utils::add_self_edges(H);
-            K = Utils::Kronecker_product(K, H);
+        // ... Calculate properties of Kronecker product ...................
+        if (c_res == -1) {
+            c_res = c_curr;
+            var_res = var_curr;
         }
+        else {
+            c_res = Utils::Kronecker_clustering(c_res, c_curr,
+                                                k_res, k_curr,
+                                                var_res, var_curr);
+            var_res = Utils::Kronecker_degree_variance(k_res, k_curr,
+                                                       var_res, var_curr);
 
-        K[0].state.clustering_global = c_res;
-        K[0].state.diameter = diam_res;
-        K[0].state.error = error;
+        }
+        k_res = Utils::Kronecker_mean_degree(k_res, k_curr);
+        diam_res = std::max(diam_res, diam_curr);
+
+        // ... Add self-edges and create Kronecker product .................
+        Utils::add_self_edges(H);
+        K = Utils::Kronecker_product(K, H);
     }
 
-    else {
-
-        if (diameter > 0) {
-
-            Diameter::create_diameter_graph(K, N, m, c, diameter, degree_distr,
-                                            calculate_c, calculate_diam, tolerance,
-                                            rng, log);
-        }
-
-        // ... Create graph with given clustering coefficient ......................
-        if (c != -1) {
-            Clustering::create_clustering_graph(K, N, m, c, diameter, degree_distr,
-                                                calculate_c, calculate_diam, tolerance,
-                                                rng, log);
-        }
-    }
-
-    // .........................................................................
+    // ... Write properties ....................................................
+    K[0].state.clustering_global = c_res;
+    K[0].state.diameter = diam_res;
+    K[0].state.error = error;
+    K[0].state.mean_deg = k_res;
+    K[0].state.num_factors = n_factors;
+    K[0].state.var = var_res;
 
     Utils::remove_self_edges(K);
 
@@ -357,16 +354,24 @@ Graph create_KronGen_graph(const Config& cfg,
 
 }
 
-// .............................................................................
+// .. Custom graph creation function ...........................................
 
-/// Custom create_graph function
-/**
-  * \param cfg            Graph config
-  * \param rng            The model rng
-  * \param log            The model logger
-  * \param analysis_cfg   The analysis config, containing the list of parameters to
-                          calculate
-*/
+/// Create a graph from a configuration node
+/** Select a graph creation algorithm and create the graph object a
+ *  configuration node.
+ *
+ * \tparam Graph        The graph type
+ * \tparam RNG          The random number generator type
+ * \tparam Logger       The logger type
+ *
+ * \param cfg           The configuration
+ * \param rng           The random number generator
+ * \param log           The model logger
+ * \param includes_analysis_cfg   Whether or not the config includes configuration
+                        which lists all properties to analyse
+ *
+ * \return Graph        The graph
+ */
 template<typename Graph, typename RNGType, typename Logger>
 Graph create_graph(const Config& cfg,
                    RNGType& rng,
@@ -399,11 +404,13 @@ Graph create_graph(const Config& cfg,
         return create_KronGen_graph<Graph>(graph_cfg, rng, log, nw_cfg);
     }
 
+    // If the graph is not a Kronecker product graph, directly generate graph
+    // using a graph generation algorithm
     else {
         return AuxGraphs::create_graph<Graph>(graph_cfg, rng);
     }
-
 }
 
-}
-#endif
+} // namespace KronGen::GraphCreation
+
+#endif // UTOPIA_MODELS_KRONGEN_GRAPHCREATION
