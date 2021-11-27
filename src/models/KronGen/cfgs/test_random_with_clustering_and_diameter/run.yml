@@ -16,10 +16,12 @@ parameter_space:
       model: KronGen
       KronGen:
         diameter: 5
-        clustering_coeff: !sweep
+        clustering: !sweep
             default: 0
             linspace: [0.05, 0.95, 11]
-        tolerance: 0.
+        tolerance: 0.1
+        min_dimension: 2
+        max_dimension: 4
 
     # ... Analyser .............................................................
     NetworkAnalyser:

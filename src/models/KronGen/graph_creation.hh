@@ -206,7 +206,7 @@ Graph create_KronGen_graph(const Config& cfg,
     }
 
     // Output info message with given properties
-    log->info("Assembling KronGen {} graph with {} vertices, mean degree m = {}"
+    log->info("Assembling KronGen {} graph with {} vertices, mean degree k = {}"
                "{}{} ...", degree_distr, N, k,
                (c != -1 ? ", clustering coefficient = "+std::to_string(c) : ""),
                (diameter != -1 ? ", diameter = "+std::to_string(diameter) : ""));
@@ -277,7 +277,7 @@ Graph create_KronGen_graph(const Config& cfg,
     double k_res = 0;
     double var_res = -1;
 
-    for (int i = 0; i < N_factors.size(); ++i) {
+    for (size_t i = 0; i < N_factors.size(); ++i) {
 
         // Get graph generation parameters
         const auto n_curr = N_factors[i];
@@ -306,33 +306,44 @@ Graph create_KronGen_graph(const Config& cfg,
         else if (types[i] == GraphTypes::ErdosRenyi) {
             H = Utopia::Graph::create_ErdosRenyi_graph<Graph>(n_curr, k_curr,
                                                          false, false, rng);
-            diam_curr = Utopia::Models::NetworkAnalyser::diameter(H);
+            if (calculate_diam) {
+                diam_curr = Utopia::Models::NetworkAnalyser::diameter(H);
+            }
         }
         else if (types[i] == GraphTypes::Regular) {
             H = Utopia::Graph::create_regular_graph<Graph>(n_curr, k_curr, false);
-            c_curr = Utopia::Models::NetworkAnalyser::global_clustering_coeff(H);
-            diam_curr = Utopia::Models::NetworkAnalyser::diameter(H);
+            if (calculate_c) {
+                c_curr = Utopia::Models::NetworkAnalyser::global_clustering_coeff(H);
+            }
+            if (calculate_diam) {
+                diam_curr = Utopia::Models::NetworkAnalyser::diameter(H);
+            }
         }
 
-        log->debug("Current factor: N={}, k={}, c={}, d={}, type={}",
-                    n_curr, k_curr, c_curr, diam_curr,
-                    GraphTypes::Graph_Type[types[i]]);
+        log->debug("Current factor: {} vertices, mean degree k = {}"
+                   "{}{} ...", n_curr, k_curr,
+                   (c != -1 ? ", clustering coefficient = "+std::to_string(c_curr) : ""),
+                   (diameter != -1 ? ", diameter = "+std::to_string(diam_curr) : ""));
 
-        // ... Calculate properties of Kronecker product ...................
-        if (c_res == -1) {
-            c_res = c_curr;
-            var_res = var_curr;
-        }
-        else {
-            c_res = Utils::Kronecker_clustering(c_res, c_curr,
-                                                k_res, k_curr,
-                                                var_res, var_curr);
-            var_res = Utils::Kronecker_degree_variance(k_res, k_curr,
-                                                       var_res, var_curr);
+        // ... Calculate properties of Kronecker product .......................
+        if (calculate_c) {
+            if (c_res == -1) {
+                c_res = c_curr;
+                var_res = var_curr;
+            }
+            else {
+                c_res = Utils::Kronecker_clustering(c_res, c_curr,
+                                                    k_res, k_curr,
+                                                    var_res, var_curr);
+                var_res = Utils::Kronecker_degree_variance(k_res, k_curr,
+                                                           var_res, var_curr);
 
+            }
+            k_res = Utils::Kronecker_mean_degree(k_res, k_curr);
         }
-        k_res = Utils::Kronecker_mean_degree(k_res, k_curr);
-        diam_res = std::max(diam_res, diam_curr);
+        if (calculate_diam) {
+            diam_res = std::max(diam_res, diam_curr);
+        }
 
         // ... Add self-edges and create Kronecker product .................
         Utils::add_self_edges(H);

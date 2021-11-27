@@ -18,7 +18,9 @@ parameter_space:
         clustering_coeff: !sweep
           default: 0.5
           linspace: [0.1, 0.9, 11]
-        tolerance: 0.
+        tolerance: 0.1
+        min_dimension: 2
+        max_dimension: 4
 
     # ... Analyser .............................................................
     NetworkAnalyser:

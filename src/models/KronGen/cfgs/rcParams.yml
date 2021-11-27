@@ -1,7 +1,7 @@
 text.usetex: True
 mathtext.fontset: 'stix'
 font.family: 'serif'
-font.size: 20
-figure.figsize: [10, 8]
-lines.linewidth: 3
-figure.autolayout: True
+# font.size: 20
+# figure.figsize: [10, 8]
+# lines.linewidth: 3
+# figure.autolayout: True

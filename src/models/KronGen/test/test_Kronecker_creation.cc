@@ -14,6 +14,7 @@
 #include <utopia/core/types.hh>
 
 #include "../graph_creation.hh"
+#include "../KronGen.hh"
 #include "test_utils.hh"
 
 using namespace Utopia::TestTools;
@@ -24,31 +25,16 @@ using namespace Utopia::Models::KronGen;
 // Initialise the core logger
 auto logger = Utopia::init_logger("root.KronGen", spdlog::level::info);
 
+
 struct Infrastructure : public BaseInfrastructure<> {
     Infrastructure() : BaseInfrastructure<>("test_Kronecker_creation.yml") {};
 };
 
-struct VertexState {
-    double clustering_global = -1;
-    double diameter = -1;
-    double mean_deg = -1;
-    double var = -1;
-};
-struct Edge {};
-
 /// The test graph types
 struct Test_Graph : Infrastructure {
 
-  using VertexTraits = Utopia::GraphEntityTraits<VertexState>;
-  using Vertex = Utopia::GraphEntity<VertexTraits>;
-
   // undirected
-  using Graph = boost::adjacency_list<
-                      boost::vecS,         // edge container
-                      boost::vecS,         // vertex container
-                      boost::undirectedS,
-                      Vertex,              // vertex struct
-                      Edge>;               // edge struct
+  using Graph = Utopia::Models::KronGen::GraphType;
 
 };
 

@@ -33,7 +33,7 @@ bool check_validity(const factor& n, const factor& k)
         return false;
     }
 
-    for (int i = 0; i < k.size(); ++i) {
+    for (size_t i = 0; i < k.size(); ++i) {
 
         // mean degrees must be smaller than number of vertices
         if (k[i]>=n[i]){
@@ -60,8 +60,8 @@ void find_possible_types (const factor& n,
 
     // Include chain graphs
     if (target_parameters.back() > 1) {
-        size_t current_candidate = -1;
-        for (int i = 0; i < k.size(); ++i) {
+        int current_candidate = -1;
+        for (size_t i = 0; i < k.size(); ++i) {
             if (k[i] <= 2) {
                 double curr_est = ObjectiveFuncs::err_func(n[i]-1, target_parameters.back());
                 if ((curr_est < chain_err)) {
@@ -81,10 +81,10 @@ void find_possible_types (const factor& n,
         or (target_parameters.size() == 4)) {
 
         const auto g = graph_types.size();
-        for (int t = 0; t < g; ++t) {
+        for (size_t t = 0; t < g; ++t) {
             size_t n_max = 0;
-            size_t current_candidate = -1;
-            for (int i = 0; i< k.size(); ++i){
+            int current_candidate = -1;
+            for (size_t i = 0; i< k.size(); ++i){
                 if ((k[i]%2 == 0) and (n[i] > n_max)
                     and (graph_types[t][i] != GraphType::Chain))
                 {
@@ -176,7 +176,7 @@ std::pair<std::vector<std::tuple<factor, factor, std::vector<GraphType>>>, doubl
             // Calculate error function for all types and all factors considered
             for (const auto& t : graph_types) {
                 double current_err = 0;
-                for (int i = 0; i < target_parameters.size(); ++i) {
+                for (size_t i = 0; i < target_parameters.size(); ++i) {
                     current_err += weights[i]*obj_func[i](target_parameters[i], n, k, t);
                 }
 

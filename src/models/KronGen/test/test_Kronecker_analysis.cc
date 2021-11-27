@@ -28,26 +28,10 @@ struct Infrastructure : public BaseInfrastructure<> {
     Infrastructure() : BaseInfrastructure<>("test_Kronecker_analysis.yml") {};
 };
 
-struct VertexState {
-    double clustering_global = -1;
-    double diameter = -1;
-    double var = -1;
-    double mean_deg = -1;
-};
-struct Edge {};
-
 /// The test graph types
 struct Test_Graph : Infrastructure {
 
-  using VertexTraits = Utopia::GraphEntityTraits<VertexState>;
-  using Vertex = Utopia::GraphEntity<VertexTraits>;
-
   // undirected
-  using G_vec_u = boost::adjacency_list<
-                      boost::vecS,         // edge container
-                      boost::vecS,         // vertex container
-                      boost::undirectedS,
-                      Vertex,              // vertex struct
-                      Edge>;               // edge struct
+  using Graph = Utopia::Models::KronGen::GraphType;
 
 };

@@ -10,6 +10,7 @@
 #include <utopia/core/graph.hh>
 
 #include "../aux_graphs.hh"
+#include "../KronGen.hh"
 #include "../graph_creation.hh"
 #include "../utils.hh"
 
@@ -27,34 +28,18 @@ struct Infrastructure : public BaseInfrastructure<> {
     Infrastructure() : BaseInfrastructure<>("test_Kronecker_properties.yml") {};
 };
 
-struct VertexState {
-    double clustering_global = -1;
-    double diameter = -1;
-    double var = -1;
-    double mean_deg = -1;
-};
-struct Edge {};
-
 /// The test graph types
 struct Test_Graph : Infrastructure {
 
-  using VertexTraits = Utopia::GraphEntityTraits<VertexState>;
-  using Vertex = Utopia::GraphEntity<VertexTraits>;
-
   // undirected
-  using Graph = boost::adjacency_list<
-                      boost::vecS,         // edge container
-                      boost::vecS,         // vertex container
-                      boost::undirectedS,
-                      Vertex,              // vertex struct
-                      Edge>;               // edge struct
+  using Graph = Utopia::Models::KronGen::GraphType;
 
 };
 
 // -- Tests --------------------------------------------------------------------
 BOOST_FIXTURE_TEST_CASE(test_Kronecker_properties, Test_Graph)
 {
-  
+
     test_config_callable (
 
       [&](auto test_cfg){
@@ -118,11 +103,11 @@ BOOST_FIXTURE_TEST_CASE(test_Kronecker_properties, Test_Graph)
           BOOST_TEST(c_t == c0, boost::test_tools::tolerance(1.e-12));
 
           // Check inversion function of clustering
-          const auto g = get_mean_deg_c(c[0], c_t, k[0], var[0]);
-          const auto c_G = c_t >= c[0] ? 1 : 0;
-          BOOST_TEST_CHECKPOINT("Testing clustering inversion function");
-          BOOST_TEST(Kronecker_clustering(c[0], c_G, k[0], g, var[0], 0) == c_t,
-                     boost::test_tools::tolerance(1.e-12));
+          // const auto g = get_mean_deg_c(c[0], c_t, k[0], var[0]);
+          // const auto c_G = c_t >= c[0] ? 1 : 0;
+          // BOOST_TEST_CHECKPOINT("Testing clustering inversion function");
+          // BOOST_TEST(Kronecker_clustering(c[0], c_G, k[0], g, var[0], 0) == c_t,
+          //            boost::test_tools::tolerance(1.e-12));
 
           // Check diameter
           const auto d = diameter(g0);

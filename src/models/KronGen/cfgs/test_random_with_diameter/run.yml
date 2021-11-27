@@ -19,13 +19,12 @@ parameter_space:
         values: [300, 500, 1000]
       model: KronGen
       KronGen:
-        degree_distribution: !sweep
-          default: ""
-          values: [scale-free, ""]
         diameter: !sweep
           default: 4
           values: [3, 4, 5, 7, 8]
-        tolerance: 0.
+        tolerance: 0.1
+        min_dimension: 2
+        max_dimension: 4
 
     # ... Analyser .............................................................
     NetworkAnalyser:

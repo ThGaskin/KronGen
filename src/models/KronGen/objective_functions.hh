@@ -1,5 +1,6 @@
 #ifndef UTOPIA_MODELS_KRONGEN_OBJECTIVE_FUNCS
 #define UTOPIA_MODELS_KRONGEN_OBJECTIVE_FUNCS
+#define UNUSED(expr) do { (void)(expr); } while (0)
 
 #include "graph_properties.hh"
 #include "graph_types.hh"
@@ -41,7 +42,7 @@ double clustering_obj_func (const double& c_t,
     }
 
     // Calculate graph degree variances and clustering coefficients
-    double c_current, c_previous, k_current, k_previous, v_current, v_previous;
+    double c_current=0., c_previous, k_current, k_previous, v_current, v_previous;
 
     for (size_t i = 0; i < N.size(); ++i){
         k_current = k[i];
@@ -110,6 +111,8 @@ double diameter_obj_func (const double& d_t,
                     const factor& k,
                     const std::vector<GraphType>& t)
 {
+    UNUSED(k);
+    UNUSED(t);
     double N_res = 1;
     for (const auto& n : N) {
         N_res *= n;

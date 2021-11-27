@@ -85,18 +85,11 @@ double Kronecker_degree_variance (const double g,
     return (v_g*v_h + pow(1+g, 2)*v_h + pow(1+h, 2)*v_g);
 }
 
-/// Calculate the degree distribution variance of an Erdos-Renyi random graph
-/// with N vertices and mean degree k
-double ER_degree_variance (const size_t N, const double k) {
-
-    return k*(1-k/(N-1));
-}
-
 /// Caclulate the required mean degree of a Kronecker factor, given the target
 /// and one other factor
-double Kronecker_mean_degree_inv (const double m, const double g)
+double Kronecker_mean_degree_inv (const double k, const double g)
 {
-    return ((m+1)/(g+1)-1);
+    return ((k+1)/(g+1)-1);
 }
 
 
@@ -214,7 +207,7 @@ factors get_factors (const size_t N, const bool include_trivial=true) {
 // including (0, k) if specified
 factors get_k_factors (size_t k, const bool include_trivial=true) {
 
-    factors res {{0, k-1}};
+    factors res {{0, k}};
     if (not include_trivial){
         res.pop_back();
     }
