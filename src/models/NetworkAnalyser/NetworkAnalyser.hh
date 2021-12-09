@@ -67,6 +67,8 @@ class NetworkAnalyser : public Model<NetworkAnalyser<GraphType>, ModelTypes>
     /// The optimisation error
     double _error = -1;
 
+    size_t _largest_comp = -1;
+
     std::size_t _num_factors = 1;
 
     /// Whether graph analysis is enabled
@@ -86,6 +88,7 @@ class NetworkAnalyser : public Model<NetworkAnalyser<GraphType>, ModelTypes>
     const std::pair<std::string, bool> _distance_harmonic;
     const std::pair<std::string, bool> _distance_max;
     const std::pair<std::string, bool> _err;
+    const std::pair<std::string, bool> _large_comp;
     const std::pair<std::string, bool> _n_factors;
     const std::pair<std::string, bool> _reciprocity;
 
@@ -104,6 +107,7 @@ class NetworkAnalyser : public Model<NetworkAnalyser<GraphType>, ModelTypes>
     const std::shared_ptr<DataSet> _dset_distance_harmonic;
     const std::shared_ptr<DataSet> _dset_distance_max;
     const std::shared_ptr<DataSet> _dset_error;
+    const std::shared_ptr<DataSet> _dset_largest_comp;
     const std::shared_ptr<DataSet> _dset_num_factors;
     const std::shared_ptr<DataSet> _dset_reciprocity;
 
@@ -144,6 +148,7 @@ class NetworkAnalyser : public Model<NetworkAnalyser<GraphType>, ModelTypes>
         _distance_max("distance_max", get_as<bool>("distances",
                                                 this->_cfg["graph_analysis"])),
         _err("optimisation_error", true),
+        _large_comp("largest_comp", true),
         _n_factors("n_factors", true),
         _reciprocity("reciprocity", get_as<bool>("reciprocity",
                                                 this->_cfg["graph_analysis"])),
@@ -162,6 +167,7 @@ class NetworkAnalyser : public Model<NetworkAnalyser<GraphType>, ModelTypes>
         _dset_distance_harmonic(this->create_dataset(_distance_harmonic)),
         _dset_distance_max(this->create_dataset(_distance_max)),
         _dset_error(this->create_dataset(_err)),
+        _dset_largest_comp(this->create_dataset(_large_comp)),
         _dset_num_factors(this->create_dataset(_n_factors)),
         _dset_reciprocity(this->create_dataset(_reciprocity))
 
@@ -186,6 +192,7 @@ class NetworkAnalyser : public Model<NetworkAnalyser<GraphType>, ModelTypes>
           if (selection.first == "diameter"
            or selection.first == "clustering_global"
            or selection.first == "optimisation_error"
+           or selection.first == "largest_comp"
            or selection.first == "n_factors")
           {
               dset = this->create_dset(selection.first, _dgrp_g, {});
@@ -309,6 +316,11 @@ class NetworkAnalyser : public Model<NetworkAnalyser<GraphType>, ModelTypes>
             _error = _g[0].state.error;
         }
 
+        // Write size of largest component
+        if (_large_comp.second){
+            _largest_comp = _g[0].state.largest_comp;
+        }
+
         if (_n_factors.second){
             _num_factors = _g[0].state.num_factors;
         }
@@ -377,6 +389,11 @@ class NetworkAnalyser : public Model<NetworkAnalyser<GraphType>, ModelTypes>
 
           if (_err.second){
               _dset_error->write(_error);
+          }
+
+
+          if (_large_comp.second){
+              _dset_largest_comp->write(_largest_comp);
           }
 
           if (_n_factors.second){
