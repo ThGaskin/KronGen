@@ -84,7 +84,7 @@ BOOST_FIXTURE_TEST_CASE(create_Kron_graph, Test_Graph)
 
                 const auto factor_cfg = factor_map.second;
                 const auto model = get_as<std::string>("model", factor_cfg);
-                is_complete *= (model == "complete");
+                is_complete = (is_complete and (model == "complete"));
                 const auto N = get_as<std::size_t>("num_vertices", factor_cfg);
                 const auto t = GraphTypes::to_graphtype(model);
                 double k = 0;

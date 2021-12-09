@@ -13,7 +13,7 @@ parameter_space:
     create_graph:
       mean_degree: !sweep
         default: 30
-        values: [2, 30]
+        values: [10, 30]
       num_vertices: !sweep
         default: 500
         values: [300, 500, 1000]
@@ -24,7 +24,7 @@ parameter_space:
           values: [3, 4, 5, 7, 8]
         tolerance: 0.1
         min_dimension: 2
-        max_dimension: 4
+        max_dimension: 6
 
     # ... Analyser .............................................................
     NetworkAnalyser:
