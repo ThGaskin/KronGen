@@ -3,6 +3,13 @@ KronGen_default:
   style:
     rc_file: ~/Utopia/KronGen/src/models/KronGen/cfgs/rcParams.yml
 
+dag_defaults:
+  dag_options:
+    define:
+      out_dir:
+        - getattr: [!dag_tag dm, dirs]
+        - getitem: [!dag_prev , out]
+
 network_stats:
   based_on: KronGen_default
   creator: universe
@@ -18,14 +25,14 @@ multiverse.errorbars:
   plot_func: errorbars
 
 sweep_stats:
-  based_on: [.dag.generic.facet_grid, KronGen_default]
+  based_on: [.dag.generic.facet_grid, KronGen_default, dag_defaults]
   creator: multiverse
   expected_multiverse_ndim: [1,2,3,4,5]
   kind: line
 
 # ... Comparison of data and target values .....................................
 data_target_comp:
-  based_on: KronGen_default
+  based_on: [KronGen_default, dag_defaults]
   creator: multiverse
   expected_multiverse_ndim: [1,2,3,4,5]
   module: model_plots.KronGen
@@ -39,6 +46,9 @@ data_target_comp:
             kwargs:
               time: -1
   transform:
+    - operation: save_data
+      args: [!dag_tag data_val, !dag_tag out_dir]
+      tag: save_data
     - operation: xr.Dataset
       kwargs:
         data_vars:
@@ -197,8 +207,12 @@ mean_degree:
       data_val:
         path: data/KronGen/NetworkAnalyser/graph_data/degree
   transform:
+
     - .mean: [!dag_tag data_val, vertex_idx]
       tag: data_values
+    - operation: save_data
+      args: [!dag_tag data_values, !dag_tag out_dir]
+      tag: save_data
     - operation: xr.Dataset
       kwargs:
         data_vars:
@@ -246,6 +260,9 @@ diameter:
             kwargs:
               time: -1
   transform:
+    - operation: save_data
+      args: [!dag_tag diameter, !dag_tag out_dir]
+      tag: save_data
     - operation: .isel
       args: [!dag_tag diameter]
       tag: data

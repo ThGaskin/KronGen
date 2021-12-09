@@ -39,7 +39,7 @@ def multiline(data,
         if var in plot_kwargs:
             plot_kwargs_separate[var] = plot_kwargs[var]
             plot_kwargs.pop(var)
-    
+
     # Get y coordinates and plot
     for var in y_data:
         additional_kwargs = {}

@@ -15,6 +15,7 @@ _:
 clustering:
   based_on: clustering_target
   <<: [*sweep_param, *x_coord]
+  compute_only: [save_data, data]
   helpers:
     set_labels:
       <<: *x_label
@@ -39,6 +40,27 @@ c_err:
     set_limits:
       x: [0, 1]
       y: [0, 1]
+
+d_err:
+  based_on: error_bar_plot
+  select_and_combine:
+    fields:
+      data_val:
+        path: data/KronGen/NetworkAnalyser/graph_data/diameter
+        transform:
+          - operation: .isel
+            args: [!dag_prev ]
+            kwargs:
+              time: -1
+  helpers:
+    set_title:
+      title: Diameter
+    set_labels:
+      <<: *x_label
+      y: Number of vertices
+    set_limits:
+      x: [0, 1]
+
 
 N_err:
   based_on: error_bar_plot
@@ -69,6 +91,7 @@ k_err:
 mean_degree:
   based_on: mean_degree
   <<: [*sweep_param, *x_coord]
+  compute_only: [save_data, data]
   helpers:
     set_labels:
       <<: *x_label
@@ -77,14 +100,16 @@ mean_degree:
 num_vertices:
   based_on: num_vertices
   <<: [*sweep_param, *x_coord]
+  compute_only: [save_data, data]
   helpers:
     set_labels:
       <<: *x_label
 
 # ... Graph diameter ...........................................................
 diameter:
-  based_on: diameter_target
+  based_on: diameter
   <<: [*sweep_param, *x_coord]
+  compute_only: [save_data, data]
   helpers:
     set_labels:
       <<: *x_label
@@ -105,6 +130,10 @@ error:
     - operation: .isel
       args: [!dag_tag data_val]
       tag: data
+    - operation: save_data
+      args: [!dag_tag data_val, !dag_tag out_dir]
+      tag: save_data
+  compute_only: [save_data, data]
   helpers:
     set_title:
       title: Optimisation error $H$
@@ -112,7 +141,34 @@ error:
       x: Target parameter
       y: Error
 
-# ... Optimisation error .......................................................
+# ... Size of largest factor .......................................................
+largest_factor:
+  based_on: sweep_stats
+  select_and_combine:
+    fields:
+      data_val:
+        path: data/KronGen/NetworkAnalyser/graph_data/largest_comp
+        transform:
+          - operation: .isel
+            args: [!dag_prev ]
+            kwargs:
+              time: -1
+  transform:
+    - operation: .isel
+      args: [!dag_tag data_val]
+      tag: data
+    - operation: save_data
+      args: [!dag_tag data_val, !dag_tag out_dir]
+      tag: save_data
+  compute_only: [save_data, data]
+  helpers:
+    set_title:
+      title: Largest factor size
+    set_labels:
+      x: Target parameter
+      y: $d$
+
+# ... Number of factors .......................................................
 n_factors:
   based_on: sweep_stats
   select_and_combine:
@@ -128,6 +184,10 @@ n_factors:
     - operation: .isel
       args: [!dag_tag data_val]
       tag: data
+    - operation: save_data
+      args: [!dag_tag data_val, !dag_tag out_dir]
+      tag: save_data
+  compute_only: [save_data, data]
   helpers:
     set_title:
       title: Number of Kronecker factors $d$
