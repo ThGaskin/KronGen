@@ -143,6 +143,9 @@ double mean_degree (const double& N, const double& k, const GraphType& t)
     if (t == GraphType::Chain) {
         return mean_degree_chain(N);
     }
+    else if (t == GraphType::Complete){
+        return (N-1);
+    }
     else {
         return k;
     }

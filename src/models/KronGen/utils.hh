@@ -71,7 +71,7 @@ size_t Kronecker_num_vertices (const size_t N, const size_t M)
 /// Calculate the mean degree of a Kronecker product of two graphs G, H
 double Kronecker_mean_degree (const double g, const double h)
 {
-    return ((g+1)*(h+1)-1);
+    return ( ((g+1)*(h+1)) -1);
 }
 
 /// Calculate the degree distribution variance of a Kronecker product of two
@@ -246,20 +246,23 @@ factors get_d_factors (const size_t val,
 
     auto res = factor_func(val, true);
 
-    if (res.size() == 1 or d_max == 2){
+    if ((not include_ones) and (d_min > 1)){
+        res.erase(res.begin());
+    }
+
+    if (res.size() < 1 or d_max == 2){
         return res;
     }
 
-
     auto current_to_do = res;
-    factors current_done = {{}};
-    current_to_do.erase(current_to_do.begin());
+
     for (size_t p = 3; p <= d_max; ++p){
-        current_done = {};
+
+        factors current_done = {};
 
         for (const auto& fac: current_to_do) {
             for (size_t i=0; i<fac.size(); ++i) {
-                const auto x = factor_func(fac[i], false);
+                const auto x = factor_func(fac[i], include_ones);
                 for (const auto& xx: x) {
                     factor q = factor(fac.begin(), fac.begin()+i); // i-1 ?
                     q.insert(q.end(), xx.begin(), xx.end());
@@ -278,8 +281,10 @@ factors get_d_factors (const size_t val,
                 }
             }
         }
-        if (include_ones and p > d_min) {
-            res.insert(res.end(), current_done.begin(), current_done.end());
+        if ((include_ones or p > d_min)) {
+            if (current_done.size() != 0) {
+                res.insert(res.end(), current_done.begin(), current_done.end());
+            }
         }
         else {
             res = current_done;
@@ -307,7 +312,10 @@ factors get_grid (const size_t grid_center,
     factors res = {};
     auto delta = int(grid_center*err);
     for (size_t i = grid_center - delta; i <= grid_center + delta; ++i) {
-        const auto t = get_d_factors(i, factor_func, d_min, d_max, true);
+        const auto t = get_d_factors(i, factor_func, d_min, d_max, false);
+        if (t.size() == 0){
+          continue;
+        }
         res.insert(res.end(), t.begin(), t.end());
     }
 

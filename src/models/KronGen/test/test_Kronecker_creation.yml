@@ -108,3 +108,15 @@ Graph8:
           diameter: 6
   throws: std::invalid_argument
   match: "Star graph cannot be created!"
+
+Graph9:
+  params:
+    model: Kronecker
+    Kronecker:
+      power: 2
+      Graph1:
+        num_vertices: 10
+        mean_degree: 4
+        model: star
+        star:
+          diameter: 3

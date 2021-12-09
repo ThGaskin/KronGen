@@ -44,7 +44,7 @@ struct Test_Graph : Infrastructure {
 // Test getting the grid in N
 BOOST_AUTO_TEST_CASE (test_N_grid)
 {
-    const std::vector<size_t> targets = {1, 2, 169, 500, 1000};
+    const std::vector<size_t> targets = {1, 2, 169, 500, 5000};
     const std::vector<double> errors = {0., 0.1, 0.2};
     const size_t min_dim = 2;
     const size_t max_dim = 8;
@@ -56,6 +56,7 @@ BOOST_AUTO_TEST_CASE (test_N_grid)
             for (const auto& n : N_grid) {
                 size_t N_res = 1;
                 for (const auto& fac : n) {
+                    BOOST_TEST(fac != 1);
                     N_res *= fac;
                 }
                 BOOST_TEST(1.0*N_res >= (N_target*(1.-err)));

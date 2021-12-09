@@ -45,6 +45,7 @@ using factors = typename std::vector<std::vector<std::size_t>>;
   */
 template<typename Graph, typename RNGType, typename Logger>
 Graph create_Kronecker_graph(const Config& cfg,
+                             const int tensor_power,
                              RNGType& rng,
                              const Logger& log,
                              const Config& analysis_cfg = YAML::Node(YAML::NodeType::Map))
@@ -81,24 +82,48 @@ Graph create_Kronecker_graph(const Config& cfg,
     bool first_run = true;
 
     // Generate Graph
-    for (const auto& model_map : cfg["Kronecker"]){
-        const auto& model_cfg = model_map.second;
-        Graph G = AuxGraphs::create_graph<Graph>(model_cfg, rng);
+    if (tensor_power < 0) {
+        for (const auto& model_map : cfg["Kronecker"]){
+            const auto& model_cfg = model_map.second;
+            Graph G = AuxGraphs::create_graph<Graph>(model_cfg, rng);
 
-        // ... Calulate properties: stored in first vertex .....................
-        Utils::calculate_properties (G,
-                                     first_run,
-                                     calculate_c,
-                                     calculate_diam,
-                                     c,
-                                     diam,
-                                     mean_deg,
-                                     variance);
-        // .....................................................................
+            // ... Calulate properties: stored in first vertex .....................
+            Utils::calculate_properties (G,
+                                         first_run,
+                                         calculate_c,
+                                         calculate_diam,
+                                         c,
+                                         diam,
+                                         mean_deg,
+                                         variance);
+            // .....................................................................
 
-        Utils::add_self_edges(G);
+            Utils::add_self_edges(G);
 
-        K = Utils::Kronecker_product(K, G);
+            K = Utils::Kronecker_product(K, G);
+        }
+    }
+    else {
+        const auto& model_cfg = get_as<Config>("Kronecker", cfg);
+        const auto& model_map = get_as<Config>("Graph1", model_cfg);
+        for (int i = 0; i<tensor_power; ++i) {
+            Graph G = AuxGraphs::create_graph<Graph>(model_map, rng);
+
+            // ... Calulate properties: stored in first vertex .....................
+            Utils::calculate_properties (G,
+                                         first_run,
+                                         calculate_c,
+                                         calculate_diam,
+                                         c,
+                                         diam,
+                                         mean_deg,
+                                         variance);
+            // .....................................................................
+
+            Utils::add_self_edges(G);
+
+            K = Utils::Kronecker_product(K, G);
+        }
     }
 
     // Remove self-loops
@@ -276,6 +301,7 @@ Graph create_KronGen_graph(const Config& cfg,
     double diam_res = -1;
     double k_res = 0;
     double var_res = -1;
+    size_t largest_factor = 0;
 
     for (size_t i = 0; i < N_factors.size(); ++i) {
 
@@ -293,6 +319,9 @@ Graph create_KronGen_graph(const Config& cfg,
           --n_factors;
           continue;
         }
+        if (n_curr > largest_factor) {
+            largest_factor = n_curr;
+        }
 
         // Create graphs and correct estimated properties if necessary
         Graph H;
@@ -306,9 +335,18 @@ Graph create_KronGen_graph(const Config& cfg,
         else if (types[i] == GraphTypes::ErdosRenyi) {
             H = Utopia::Graph::create_ErdosRenyi_graph<Graph>(n_curr, k_curr,
                                                          false, false, rng);
+            // hm ...
+            if (k_curr < 10) {
+                if (calculate_c) {
+                    c_curr = Utopia::Models::NetworkAnalyser::global_clustering_coeff(H);
+                }
+                var_curr = Utopia::Models::NetworkAnalyser::degree_statistics(H).second;
+            }
+
             if (calculate_diam) {
                 diam_curr = Utopia::Models::NetworkAnalyser::diameter(H);
             }
+
         }
         else if (types[i] == GraphTypes::Regular) {
             H = Utopia::Graph::create_regular_graph<Graph>(n_curr, k_curr, false);
@@ -354,6 +392,7 @@ Graph create_KronGen_graph(const Config& cfg,
     K[0].state.clustering_global = c_res;
     K[0].state.diameter = diam_res;
     K[0].state.error = error;
+    K[0].state.largest_comp = largest_factor;
     K[0].state.mean_deg = k_res;
     K[0].state.num_factors = n_factors;
     K[0].state.var = var_res;
@@ -408,7 +447,13 @@ Graph create_graph(const Config& cfg,
     const std::string model = get_as<std::string>("model", graph_cfg);
 
     if (model == "Kronecker") {
-        return create_Kronecker_graph<Graph>(graph_cfg, rng, log, nw_cfg);
+        int tensor_power = -1;
+        try {
+            tensor_power = get_as<int>("power", graph_cfg["Kronecker"]);
+        }
+        catch (YAML::InvalidNode&){}
+        catch (Utopia::KeyError&){}
+        return create_Kronecker_graph<Graph>(graph_cfg, tensor_power, rng, log, nw_cfg);
     }
 
     else if (model == "KronGen") {
