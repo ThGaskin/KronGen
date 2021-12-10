@@ -139,6 +139,24 @@ void remove_self_edges (Graph& g) {
     }
 }
 
+/// Build an initiator matrix, used as the seed for a larger graph. If the large
+/// graph does not need to be build, return a minimal graph with two connected vertices.
+/// All graph information on the Kronecker product graph will be stored in the
+/// first vertex. 
+template<typename Graph>
+Graph build_initiator_graph (const bool entire_graph_needed) {
+    if (entire_graph_needed){
+        Graph G{1};
+        Utils::add_self_edges(G);
+        return G;
+    }
+    else {
+        Graph G{2};
+        boost::add_edge(0, 1, G);
+        return G;
+    }
+}
+
 /// Calculates graph properties (clustering coefficient and diameter) on the go
 /// as a Kronecker graph is being generated
 template<typename Graph>

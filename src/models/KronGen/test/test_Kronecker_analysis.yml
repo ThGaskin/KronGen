@@ -3,6 +3,7 @@ Graph1:
   params:
     create_graph:
       model: Kronecker
+      build_graph: true
       Kronecker:
         Graph1:
           model: WattsStrogatz
@@ -27,6 +28,7 @@ Graph2:
   params:
     create_graph:
       model: Kronecker
+      build_graph: true
       Kronecker:
         Graph1:
           model: complete

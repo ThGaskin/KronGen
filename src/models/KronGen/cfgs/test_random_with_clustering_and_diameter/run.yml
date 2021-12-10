@@ -22,6 +22,7 @@ parameter_space:
         tolerance: 0.1
         min_dimension: 2
         max_dimension: 4
+        build_graph: false
 
     # ... Analyser .............................................................
     NetworkAnalyser:

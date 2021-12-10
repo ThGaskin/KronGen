@@ -52,9 +52,9 @@ Graph create_Kronecker_graph(const Config& cfg,
 {
     log->info("Creating Kronecker graph");
 
-    // ... Create graph with one vertex and a self-edge ........................
-    Graph K{1};
-    Utils::add_self_edges(K);
+    // ... Create initator graph ...............................................
+    const bool build_graph = get_as<bool>("build_graph", cfg);
+    Graph K = Utils::build_initiator_graph<Graph>(build_graph);
 
     // ... Data containers for graph analysis properties .......................
     double c = -1;
@@ -87,7 +87,7 @@ Graph create_Kronecker_graph(const Config& cfg,
             const auto& model_cfg = model_map.second;
             Graph G = AuxGraphs::create_graph<Graph>(model_cfg, rng);
 
-            // ... Calulate properties: stored in first vertex .....................
+            // ... Calulate properties: stored in first vertex .................
             Utils::calculate_properties (G,
                                          first_run,
                                          calculate_c,
@@ -96,11 +96,11 @@ Graph create_Kronecker_graph(const Config& cfg,
                                          diam,
                                          mean_deg,
                                          variance);
-            // .....................................................................
-
-            Utils::add_self_edges(G);
-
-            K = Utils::Kronecker_product(K, G);
+            // .................................................................
+            if (build_graph) {
+                Utils::add_self_edges(G);
+                K = Utils::Kronecker_product(K, G);
+            }
         }
     }
     else {
@@ -109,7 +109,7 @@ Graph create_Kronecker_graph(const Config& cfg,
         for (int i = 0; i<tensor_power; ++i) {
             Graph G = AuxGraphs::create_graph<Graph>(model_map, rng);
 
-            // ... Calulate properties: stored in first vertex .....................
+            // ... Calulate properties: stored in first vertex .................
             Utils::calculate_properties (G,
                                          first_run,
                                          calculate_c,
@@ -118,11 +118,11 @@ Graph create_Kronecker_graph(const Config& cfg,
                                          diam,
                                          mean_deg,
                                          variance);
-            // .....................................................................
-
-            Utils::add_self_edges(G);
-
-            K = Utils::Kronecker_product(K, G);
+            // .................................................................
+            if (build_graph) {
+                Utils::add_self_edges(G);
+                K = Utils::Kronecker_product(K, G);
+            }
         }
     }
 
@@ -292,9 +292,9 @@ Graph create_KronGen_graph(const Config& cfg,
 
     log->info("Number of Kronecker factors: {}.", n_factors);
 
-    // Create graph with one vertex and a self-edge
-    Graph K{1};
-    Utils::add_self_edges(K);
+    // ... Create initator graph 
+    const bool build_graph = get_as<bool>("build_graph", cfg["KronGen"]);
+    Graph K = Utils::build_initiator_graph<Graph>(build_graph);
 
     // Keep track of resulting properties as Kronecker graph is assembled
     double c_res = -1;
@@ -383,9 +383,11 @@ Graph create_KronGen_graph(const Config& cfg,
             diam_res = std::max(diam_res, diam_curr);
         }
 
-        // ... Add self-edges and create Kronecker product .................
-        Utils::add_self_edges(H);
-        K = Utils::Kronecker_product(K, H);
+        // ... Add self-edges and create Kronecker product .....................
+        if (build_graph) {
+            Utils::add_self_edges(H);
+            K = Utils::Kronecker_product(K, H);
+        }
     }
 
     // ... Write properties ....................................................
