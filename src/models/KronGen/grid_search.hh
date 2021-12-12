@@ -48,55 +48,53 @@ bool check_validity(const factor& n, const factor& k)
     return true;
 }
 
+// Find positions for possible graph types (ER, regular, chain)
 void find_possible_types (const factor& n,
                           const factor& k,
                           const std::vector<double>& target_parameters,
                           std::vector<std::vector<GraphType>>& graph_types,
                           const double& max_error)
 {
-    std::vector<GraphType> types(n.size(), GraphType::ErdosRenyi);
-    graph_types.emplace_back(types);
     double chain_err = max_error;
 
     // Include chain graphs
-    if (target_parameters.back() > 1) {
-        int current_candidate = -1;
-        for (size_t i = 0; i < k.size(); ++i) {
-            if (k[i] <= 2) {
-                double curr_est = ObjectiveFuncs::err_func(n[i]-1, target_parameters.back());
-                if ((curr_est < chain_err)) {
-                    current_candidate = i;
-                    chain_err = curr_est;
-                }
-            }
-        }
-        if (current_candidate != -1) {
-            types[current_candidate] = GraphType::Chain;
-            graph_types.emplace_back(types);
-        }
-    }
-
-    // Include regular graphs
-    if ((target_parameters.size() == 3 and target_parameters.back() <= 1)
-        or (target_parameters.size() == 4)) {
-
-        const auto g = graph_types.size();
+    auto g = graph_types.size();
+    if (target_parameters.size() > 2 and target_parameters.back() > 1) {
         for (size_t t = 0; t < g; ++t) {
-            size_t n_max = 0;
             int current_candidate = -1;
-            for (size_t i = 0; i< k.size(); ++i){
-                if ((k[i]%2 == 0) and (n[i] > n_max)
-                    and (graph_types[t][i] != GraphType::Chain))
-                {
-                    current_candidate = i;
-                    n_max = n[i];
+            for (size_t i = 0; i < k.size(); ++i) {
+                if (k[i] <= 2) {
+                    double curr_est = ObjectiveFuncs::err_func(n[i]-1, target_parameters.back());
+                    if ((curr_est < chain_err)) {
+                        current_candidate = i;
+                        chain_err = curr_est;
+                    }
                 }
             }
             if (current_candidate != -1) {
                 auto new_type = graph_types[t];
-                new_type[current_candidate] = GraphType::Regular;
+                new_type[current_candidate] = GraphType::Chain;
                 graph_types.emplace_back(new_type);
             }
+        }
+    }
+
+    // Include regular graphs
+    g = graph_types.size();
+    for (size_t t = 0; t < g; ++t) {
+        size_t n_max = 0;
+        int current_candidate = -1;
+        for (size_t i = 0; i< k.size(); ++i){
+            if ((k[i]%2 == 0) and (n[i] > n_max))
+            {
+                current_candidate = i;
+                n_max = n[i];
+            }
+        }
+        if (current_candidate != -1) {
+            auto new_type = graph_types[t];
+            new_type[current_candidate] = GraphType::Regular;
+            graph_types.emplace_back(new_type);
         }
     }
 }
@@ -156,6 +154,11 @@ std::pair<std::vector<std::tuple<factor, factor, std::vector<GraphType>>>, doubl
                                           max_error, min_factors, max_factors);
     log->debug("Grid set up.");
 
+    if (n_grid.empty() or k_grid.empty()) {
+        log->warn("No factorisation of either N or k possible! Increase values.");
+        return {{{{grid_center.first}, {grid_center.second}, {GraphType::ErdosRenyi}}}, 0.};
+    }
+
     // Initialise vector for resulting factors and resulting error
     std::vector<std::tuple<factor, factor, std::vector<GraphType>>> res = {};
     double error = -1;
@@ -171,6 +174,7 @@ std::pair<std::vector<std::tuple<factor, factor, std::vector<GraphType>>>, doubl
 
             // List possible type combinations
             std::vector<std::vector<GraphType>> graph_types;
+            graph_types.emplace_back(n.size(), GraphType::ErdosRenyi);
             find_possible_types(n, k, target_parameters, graph_types, max_error);
 
             // Calculate error function for all types and all factors considered
@@ -182,10 +186,7 @@ std::pair<std::vector<std::tuple<factor, factor, std::vector<GraphType>>>, doubl
 
                 // If error constant, add current factorisation to set of Pareto points
                 if (current_err == error) {
-
                     res.emplace_back(std::make_tuple(n, k, t));
-
-                    error = current_err;
                 }
 
                 // If error reduced, use curent factorisation

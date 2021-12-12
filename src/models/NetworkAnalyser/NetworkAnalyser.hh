@@ -64,13 +64,6 @@ class NetworkAnalyser : public Model<NetworkAnalyser<GraphType>, ModelTypes>
     /// The diameter of the graph
     std::size_t _diam;
 
-    /// The optimisation error
-    double _error = -1;
-
-    size_t _largest_comp = -1;
-
-    std::size_t _num_factors = 1;
-
     /// Whether graph analysis is enabled
     const bool _enable_analysis;
 
@@ -90,6 +83,7 @@ class NetworkAnalyser : public Model<NetworkAnalyser<GraphType>, ModelTypes>
     const std::pair<std::string, bool> _err;
     const std::pair<std::string, bool> _large_comp;
     const std::pair<std::string, bool> _n_factors;
+    const std::pair<std::string, bool> _n_Paretos;
     const std::pair<std::string, bool> _reciprocity;
 
     /// Graph datagroup
@@ -109,6 +103,7 @@ class NetworkAnalyser : public Model<NetworkAnalyser<GraphType>, ModelTypes>
     const std::shared_ptr<DataSet> _dset_error;
     const std::shared_ptr<DataSet> _dset_largest_comp;
     const std::shared_ptr<DataSet> _dset_num_factors;
+    const std::shared_ptr<DataSet> _dset_n_Paretos;
     const std::shared_ptr<DataSet> _dset_reciprocity;
 
   public:
@@ -150,6 +145,7 @@ class NetworkAnalyser : public Model<NetworkAnalyser<GraphType>, ModelTypes>
         _err("optimisation_error", true),
         _large_comp("largest_comp", true),
         _n_factors("n_factors", true),
+        _n_Paretos("n_Paretos", true),
         _reciprocity("reciprocity", get_as<bool>("reciprocity",
                                                 this->_cfg["graph_analysis"])),
 
@@ -169,6 +165,7 @@ class NetworkAnalyser : public Model<NetworkAnalyser<GraphType>, ModelTypes>
         _dset_error(this->create_dataset(_err)),
         _dset_largest_comp(this->create_dataset(_large_comp)),
         _dset_num_factors(this->create_dataset(_n_factors)),
+        _dset_n_Paretos(this->create_dataset(_n_Paretos)),
         _dset_reciprocity(this->create_dataset(_reciprocity))
 
   {
@@ -193,7 +190,8 @@ class NetworkAnalyser : public Model<NetworkAnalyser<GraphType>, ModelTypes>
            or selection.first == "clustering_global"
            or selection.first == "optimisation_error"
            or selection.first == "largest_comp"
-           or selection.first == "n_factors")
+           or selection.first == "n_factors"
+           or selection.first == "n_Paretos")
           {
               dset = this->create_dset(selection.first, _dgrp_g, {});
               dset->add_attribute("dim_name__0", "time");
@@ -311,20 +309,6 @@ class NetworkAnalyser : public Model<NetworkAnalyser<GraphType>, ModelTypes>
             }
         }
 
-        // Write optimsation error
-        if (_err.second){
-            _error = _g[0].state.error;
-        }
-
-        // Write size of largest component
-        if (_large_comp.second){
-            _largest_comp = _g[0].state.largest_comp;
-        }
-
-        if (_n_factors.second){
-            _num_factors = _g[0].state.num_factors;
-        }
-
         this->_log->info("Graph analysis complete.");
 
       }
@@ -388,16 +372,19 @@ class NetworkAnalyser : public Model<NetworkAnalyser<GraphType>, ModelTypes>
           }
 
           if (_err.second){
-              _dset_error->write(_error);
+              _dset_error->write(_g[0].state.error);
           }
 
-
           if (_large_comp.second){
-              _dset_largest_comp->write(_largest_comp);
+              _dset_largest_comp->write(_g[0].state.largest_comp);
           }
 
           if (_n_factors.second){
-              _dset_num_factors->write(_num_factors);
+              _dset_num_factors->write(_g[0].state.num_factors);
+          }
+
+          if (_n_Paretos.second){
+              _dset_n_Paretos->write(_g[0].state.num_Paretos);
           }
 
           this->_log->info ("Data written.");

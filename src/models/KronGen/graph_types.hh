@@ -19,6 +19,7 @@ std::string Graph_Type[] = {
     "Chain",
     "Complete",
     "Erdos-Renyi",
+    "Klemm-Eguiluz",
     "Regular",
     "Scale-free",
     "Small-world"

@@ -50,7 +50,7 @@ Graph create_Kronecker_graph(const Config& cfg,
                              const Logger& log,
                              const Config& analysis_cfg = YAML::Node(YAML::NodeType::Map))
 {
-    log->info("Creating Kronecker graph");
+    log->info("Creating Kronecker graph ...");
 
     // ... Create initator graph ...............................................
     const bool build_graph = get_as<bool>("build_graph", cfg);
@@ -174,6 +174,9 @@ Graph create_KronGen_graph(const Config& cfg,
 
     try {
         c = get_as<double>("clustering", cfg["KronGen"]);
+        if (c < 0 or c > 1) {
+            throw std::invalid_argument("Clustering coefficient must be in [0, 1]!");
+        }
     }
     catch(Utopia::KeyError&){}
 
@@ -248,6 +251,7 @@ Graph create_KronGen_graph(const Config& cfg,
                                                                  false, rng);
         }
     }
+
     // Ignore graphs with specified degree distribution for now
     else if (degree_distr != "") {
 
@@ -278,11 +282,12 @@ Graph create_KronGen_graph(const Config& cfg,
     // Collect the resulting error value (equal for all Pareto points)
     const double error = res.second;
 
-    log->info("Grid search complete. Found {} Pareto point(s).", Paretos.size());
+    const size_t n_Paretos = Paretos.size();
+    log->info("Grid search complete. Found {} Pareto point(s).", n_Paretos);
 
     // If multiple Pareto points found, randomly pick one
     std::uniform_real_distribution<double> prob_distr;
-    const size_t rdm_pt = std::round(prob_distr(rng) * (Paretos.size()-1));
+    const size_t rdm_pt = std::round(prob_distr(rng) * (n_Paretos-1));
     const auto N_factors = std::get<0>(Paretos[rdm_pt]);
     const auto k_factors = std::get<1>(Paretos[rdm_pt]);
     const auto types = std::get<2>(Paretos[rdm_pt]);
@@ -292,7 +297,7 @@ Graph create_KronGen_graph(const Config& cfg,
 
     log->info("Number of Kronecker factors: {}.", n_factors);
 
-    // ... Create initator graph 
+    // ... Create initiator graph
     const bool build_graph = get_as<bool>("build_graph", cfg["KronGen"]);
     Graph K = Utils::build_initiator_graph<Graph>(build_graph);
 
@@ -358,8 +363,8 @@ Graph create_KronGen_graph(const Config& cfg,
             }
         }
 
-        log->debug("Current factor: {} vertices, mean degree k = {}"
-                   "{}{} ...", n_curr, k_curr,
+        log->debug("Current factor: {} graph with {} vertices, mean degree k = {}"
+                   "{}{} ...", GraphProperties::Graph_Type[types[i]], n_curr, k_curr,
                    (c != -1 ? ", clustering coefficient = "+std::to_string(c_curr) : ""),
                    (diameter != -1 ? ", diameter = "+std::to_string(diam_curr) : ""));
 
@@ -383,7 +388,7 @@ Graph create_KronGen_graph(const Config& cfg,
             diam_res = std::max(diam_res, diam_curr);
         }
 
-        // ... Add self-edges and create Kronecker product .....................
+        // If full graph being generated: add self-edges and create Kronecker product
         if (build_graph) {
             Utils::add_self_edges(H);
             K = Utils::Kronecker_product(K, H);
@@ -397,6 +402,7 @@ Graph create_KronGen_graph(const Config& cfg,
     K[0].state.largest_comp = largest_factor;
     K[0].state.mean_deg = k_res;
     K[0].state.num_factors = n_factors;
+    K[0].state.num_Paretos = n_Paretos;
     K[0].state.var = var_res;
 
     Utils::remove_self_edges(K);

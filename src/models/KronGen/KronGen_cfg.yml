@@ -30,11 +30,6 @@ create_graph:
       model: star
       <<: *defaults
   KronGen:
-    diameter: 4
-    clustering: 0.3
-    tolerance: 0.1
-    min_dimension: 2
-    max_dimension: 4
     build_graph: true
 
 # Graph analysis

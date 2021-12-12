@@ -20,7 +20,7 @@ def network_stats(dm: DataManager, *,
 
     data = uni['data']['KronGen']['NetworkAnalyser']['graph_data']
     plots = ['num_vertices']+list(data.keys())[2:] # discard vertices and edges
-    for x in ['optimisation_error', 'largest_comp', 'n_factors']:
+    for x in ['optimisation_error', 'largest_comp', 'n_factors', 'n_Paretos']:
         if (x in plots):
             plots.remove(x)
     n_plots = len(plots)

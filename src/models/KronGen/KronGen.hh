@@ -64,6 +64,7 @@ struct VertexState
     size_t largest_comp = -1;
     double mean_deg = -1;
     size_t num_factors = 1; // number of Kronecker factors
+    size_t num_Paretos = 1;
     double var = -1;
 
 };

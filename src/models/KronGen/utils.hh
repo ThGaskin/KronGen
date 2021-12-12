@@ -111,38 +111,37 @@ double Kronecker_clustering (const double c_G,
                              const double v_g,
                              const double v_h)
 {
-
     const double k = Kronecker_mean_degree(g, h);
-    const double var = Kronecker_degree_variance(g, h, v_g, v_h);
-    double c = c_G*c_H*(v_g+g*(g-1))*(v_h+h*(h-1));
-    c += 3*g*c_H*(v_h+h*(h-1))+3*h*c_G*(v_g+g*(g-1));
-    c += c_G*(v_g+g*(g-1))+c_H*(v_h+h*(h-1));
-    c += 6*g*h;
-    c /= (var + k*(k-1));
+    const double v_k = Kronecker_degree_variance(g, h, v_g, v_h);
 
-    return c;
+    const double t_1 = c_G*(v_g+g*(g-1)) + 3*g + 1;
+    const double t_2 = c_H*(v_h+h*(h-1)) + 3*h + 1;
+    const double t_3 = 3*k + 1;
+    const double t_4 = (v_k) + k*(k-1);
+
+    return ((t_1*t_2 - t_3) / t_4);
 }
 
 /// Add self_edges to a graph
 template<typename Graph>
-void add_self_edges (Graph& g) {
-    for (const auto& v : range<IterateOver::vertices>(g)) {
-        boost::add_edge(v, v, g);
+void add_self_edges (Graph& G) {
+    for (const auto& v : range<IterateOver::vertices>(G)) {
+        boost::add_edge(v, v, G);
     }
 }
 
 /// Remove self_edges from a graph
 template<typename Graph>
-void remove_self_edges (Graph& g) {
-    for (const auto& v : range<IterateOver::vertices>(g)) {
-        boost::remove_edge(v, v, g);
+void remove_self_edges (Graph& G) {
+    for (const auto& v : range<IterateOver::vertices>(G)) {
+        boost::remove_edge(v, v, G);
     }
 }
 
 /// Build an initiator matrix, used as the seed for a larger graph. If the large
 /// graph does not need to be build, return a minimal graph with two connected vertices.
 /// All graph information on the Kronecker product graph will be stored in the
-/// first vertex. 
+/// first vertex.
 template<typename Graph>
 Graph build_initiator_graph (const bool entire_graph_needed) {
     if (entire_graph_needed){
@@ -281,9 +280,9 @@ factors get_d_factors (const size_t val,
         for (const auto& fac: current_to_do) {
             for (size_t i=0; i<fac.size(); ++i) {
                 const auto x = factor_func(fac[i], include_ones);
-                for (const auto& xx: x) {
-                    factor q = factor(fac.begin(), fac.begin()+i); // i-1 ?
-                    q.insert(q.end(), xx.begin(), xx.end());
+                for (const auto& x_fac: x) {
+                    factor q = factor(fac.begin(), fac.begin()+i);
+                    q.insert(q.end(), x_fac.begin(), x_fac.end());
                     q.insert(q.end(), fac.begin()+(i+1), fac.end());
                     sort(q.begin(), q.end());
                     bool already_in = false;
@@ -328,7 +327,7 @@ factors get_grid (const size_t grid_center,
                   const size_t d_max)
 {
     factors res = {};
-    auto delta = int(grid_center*err);
+    const auto delta = int(grid_center*err);
     for (size_t i = grid_center - delta; i <= grid_center + delta; ++i) {
         const auto t = get_d_factors(i, factor_func, d_min, d_max, false);
         if (t.size() == 0){
