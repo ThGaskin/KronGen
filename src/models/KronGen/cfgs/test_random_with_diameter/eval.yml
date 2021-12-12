@@ -12,7 +12,18 @@ _:
 
 # ... Graph mean degree ........................................................
 mean_degree:
-  based_on: mean_degree
+  based_on: sweep_stats
+  select_and_combine:
+    fields:
+      data_val:
+        path: data/KronGen/NetworkAnalyser/graph_data/degree
+  transform:
+    - .mean: [!dag_tag data_val, vertex_idx]
+    - operation: xr.Dataset
+      kwargs:
+        data_vars:
+          y: !dag_prev
+      tag: data
   <<: [*sweep_param, *x_coord]
   helpers:
     set_labels:
@@ -20,15 +31,28 @@ mean_degree:
 
 # ... Graph num vertices .......................................................
 num_vertices:
-  based_on: num_vertices
+  based_on: sweep_stats
+  select_and_combine:
+    fields:
+      data_val:
+        path: data/KronGen/NetworkAnalyser/graph_data/_vertices
+      transform:
+        - operation: .isel
+          args: [!dag_prev ]
+          kwargs:
+            vertex_idx: -1
+        - add: [!dag_prev , 1]
+  target: diameter
   <<: [*sweep_param, *x_coord]
-  helpers:
-    set_labels:
-      <<: *x_label
+  compute_only: [data, the_dm]
 
 # ... Graph diameter ...........................................................
 diameter:
-  based_on: diameter
-  helpers:
-    set_labels:
-      <<: *x_label
+  based_on: sweep_stats
+  select_and_combine:
+    fields:
+      data_val:
+        path: data/KronGen/NetworkAnalyser/graph_data/clustering_global
+  target: diameter
+  <<: [*sweep_param, *x_coord]
+  compute_only: [data, the_dm]

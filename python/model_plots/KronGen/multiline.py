@@ -1,52 +1,50 @@
 import numpy as np
-import matplotlib.pyplot as plt
-import matplotlib.ticker as ticker
-import csv
-import pandas as pd
-from matplotlib.lines import Line2D
-
 from utopya.plotting import is_plot_func, PlotHelper
 
 # -----------------------------------------------------------------------------
-@is_plot_func(use_dag=True, required_dag_tags=['data'])
+@is_plot_func(use_dag=True, required_dag_tags=['data', 'the_dm'])
 def multiline(data,
               hlpr: PlotHelper,
-              x: str = None,
-              y: list = None,
+              x: str,
+              target: str=None,
+              plot_target_line: bool=True,
               **plot_kwargs):
 
-    hlpr.ax.grid(linewidth=0.5, alpha=0.5)
+    """For multiverse runs, this produces a line plot showing actual and any
+    target values.
+
+    Arguments:
+        data (xarray): the dataset
+        hlpr (PlotHelper): description
+        x (str): the parameter dimension of the diagram.
+        target (str): the parameter name
+        plot_kwargs (dict, optional): kwargs passed to the pcolor plot function
+    """
 
     to_plot = data['data']
 
-    # hlpr.ax.plot(to_plot.coords[x].data, to_plot.data)
-    #
-    #
-    # df = pd.DataFrame(to_plot)
-    # df.to_csv("~/test.csv")
+    hlpr.ax.plot(to_plot.coords[x].data, to_plot.data_vars['y'].data, **plot_kwargs)
 
-    # Get x coordinates
-    if x is None:
-        for key in to_plot.coords.keys():
-            if (key != 'vertex_idx'):
-                x = key
+    hlpr.ax.grid(linewidth=0.5, alpha=0.5)
 
-    y_data = y if y is not None else to_plot.data_vars.keys()
+    # Find and plot any target values, if present
+    dm = data['the_dm']._data['cfg']['run']._data['parameter_space']['KronGen']['create_graph']
+    def finditem(key, obj):
+        if key in obj: return obj[key]
+        for k, v in obj.items():
+            if isinstance(v,dict):
+                item = finditem(key, v)
+                if item is not None:
+                    return item
 
-    # Extract additional kwargs for specific lines
-    plot_kwargs_separate = {}
-    for var in y_data:
-        if var in plot_kwargs:
-            plot_kwargs_separate[var] = plot_kwargs[var]
-            plot_kwargs.pop(var)
+    target = x if target is None else target
+    target_vals = finditem(target, dm)
+    if (target_vals is not None and plot_target_line):
+        try:
+            t = [i for i in target_vals]
+        except:
+            t = target_vals*np.ones(len(to_plot.coords[x].data))
 
-    # Get y coordinates and plot
-    for var in y_data:
-        additional_kwargs = {}
-        if var in plot_kwargs_separate.keys():
-            additional_kwargs.update(plot_kwargs_separate[var])
-
-        hlpr.ax.plot(to_plot.coords[x].data, to_plot.data_vars[var].data, **plot_kwargs, **additional_kwargs)
-
-    hlpr.ax.legend([Line2D([0], [0], color='black', linestyle='dashed', lw=1)],
-                   ['Target value'])
+        hlpr.ax.plot(to_plot.coords[x].data, t, color='black', linestyle='dashed',
+                     label='Target', zorder=-1)
+        hlpr.ax.legend()

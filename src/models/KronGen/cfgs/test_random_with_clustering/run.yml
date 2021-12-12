@@ -11,13 +11,14 @@ parameter_space:
   # ... Model parameters .......................................................
   KronGen:
     create_graph:
-      mean_degree: 100
-      num_vertices: 2000
+      mean_degree: 20
+      num_vertices: 500
       model: KronGen
+      build_graph: false
       KronGen:
-        clustering_coeff: !sweep
+        clustering: !sweep
           default: 0.5
-          linspace: [0.1, 0.9, 11]
+          values: [0.1, 0.5, 0.7]
         tolerance: 0.1
         min_dimension: 2
         max_dimension: 4
