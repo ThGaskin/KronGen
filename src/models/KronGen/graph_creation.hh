@@ -355,9 +355,6 @@ Graph create_KronGen_graph(const Config& cfg,
         }
         else if (types[i] == GraphTypes::Regular) {
             H = Utopia::Graph::create_regular_graph<Graph>(n_curr, k_curr, false);
-            if (calculate_c) {
-                c_curr = Utopia::Models::NetworkAnalyser::global_clustering_coeff(H);
-            }
             if (calculate_diam) {
                 diam_curr = Utopia::Models::NetworkAnalyser::diameter(H);
             }

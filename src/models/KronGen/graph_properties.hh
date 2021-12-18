@@ -22,19 +22,24 @@ double clustering_ER (const double& N, const double& k)
 }
 
 /// Returns the clustering coefficient of regular graph
-// To do: linear interpolation not quite accurate
-double clustering_regular(const double& N, const double& k)
+double clustering_regular(const size_t& N, const size_t& k)
 {
-    if (N < 3 or k < 2) {
+    if (k < 2) {
         return 0;
     }
-    double T = (k/2 * (k-1.))-k/4*(k/2+1);
-    const double T_2 = (k-2*N/3)*(k/4*(k/2+1))/(N/3-1.);
-    if ( 2*N/3 < k) {
-        T += T_2;
+    if (N <= k+1) {
+        return 1;
     }
-
-    return (T /(k/2*(k-1)));
+    else {
+        double res = 3./4.*(pow(k, 2)-2*k)/(pow(k, 2)-k);
+        // Additional triangles through looping over network
+        if (3.0*k/2 >= 1.0*N) {
+            auto a = ((3*k/2)%N+1)*((3*k/2)%N+2);
+            double b = (static_cast<double>(a))/(k*k-1);
+            res += b;
+        }
+        return res;
+    }
 }
 
 /// Returns an estimate of the clusering coefficient of various graph types

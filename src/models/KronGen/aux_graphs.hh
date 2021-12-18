@@ -14,8 +14,7 @@ namespace Utopia::Models::KronGen::AuxGraphs {
 
 /// Auxiliary graphs used in the KronGen model
 
-/// Create a graph with zero clustering, a given number of vertices, a
-/// given mean degree, and zero degree variance.
+/// Create a k-regular graph with zero clustering.
 /**
   * \param N    Number of vertices. Must be at least 2*k, and even.
   * \param k    Mean degree of graph. Must be at least 2.
