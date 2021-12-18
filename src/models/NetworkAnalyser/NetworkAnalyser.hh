@@ -1,5 +1,6 @@
 #ifndef UTOPIA_MODELS_NETWORKANALYSER_HH
 #define UTOPIA_MODELS_NETWORKANALYSER_HH
+#define UNUSED(expr) do { (void)(expr); } while (0)
 
 // standard library includes
 #include <random>
@@ -104,6 +105,7 @@ class NetworkAnalyser : public Model<NetworkAnalyser<GraphType>, ModelTypes>
     const std::shared_ptr<DataSet> _dset_largest_comp;
     const std::shared_ptr<DataSet> _dset_num_factors;
     const std::shared_ptr<DataSet> _dset_n_Paretos;
+    const std::shared_ptr<DataSet> _dset_num_vertices;
     const std::shared_ptr<DataSet> _dset_reciprocity;
 
   public:
@@ -166,6 +168,7 @@ class NetworkAnalyser : public Model<NetworkAnalyser<GraphType>, ModelTypes>
         _dset_largest_comp(this->create_dataset(_large_comp)),
         _dset_num_factors(this->create_dataset(_n_factors)),
         _dset_n_Paretos(this->create_dataset(_n_Paretos)),
+        _dset_num_vertices(this->create_dataset({"num_vertices", true})),
         _dset_reciprocity(this->create_dataset(_reciprocity))
 
   {
@@ -191,7 +194,8 @@ class NetworkAnalyser : public Model<NetworkAnalyser<GraphType>, ModelTypes>
            or selection.first == "optimisation_error"
            or selection.first == "largest_comp"
            or selection.first == "n_factors"
-           or selection.first == "n_Paretos")
+           or selection.first == "n_Paretos"
+           or selection.first == "num_vertices")
           {
               dset = this->create_dset(selection.first, _dgrp_g, {});
               dset->add_attribute("dim_name__0", "time");
@@ -318,6 +322,8 @@ class NetworkAnalyser : public Model<NetworkAnalyser<GraphType>, ModelTypes>
   void write_data() {}
   void epilog() {
 
+      const size_t num_vertices = boost::num_vertices(_g);
+
       if (this->_enable_analysis) {
 
           this->_log->info ("Writing data ... ");
@@ -350,9 +356,24 @@ class NetworkAnalyser : public Model<NetworkAnalyser<GraphType>, ModelTypes>
           }
 
           if (_degree.second){
-              _dset_degree->write(v, v_end, [this](const auto v) {
-                  return this->_g[v].state.degree;
-              });
+              if (num_vertices == 2 and _g[0].state.num_vertices != -1) {
+                  _dset_degree->write(v, v_end, [this](const auto v) {
+                      return this->_g[0].state.mean_deg;
+                      UNUSED(v);
+                  });
+              }
+              else {
+                  _dset_degree->write(v, v_end, [this](const auto v) {
+                      return this->_g[v].state.degree;
+                  });
+              }
+          }
+
+          if (num_vertices == 2 and _g[0].state.num_vertices != -1) {
+              _dset_num_vertices->write(_g[0].state.num_vertices);
+          }
+          else {
+                _dset_num_vertices->write(boost::num_vertices(_g));
           }
 
           if (_diameter.second){

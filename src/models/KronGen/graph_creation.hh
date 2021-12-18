@@ -60,6 +60,7 @@ Graph create_Kronecker_graph(const Config& cfg,
     double c = -1;
     double diam = -1;
     double mean_deg;
+    size_t num_vertices;
     double variance;
 
     // ... Get analysis targets ................................................
@@ -95,6 +96,7 @@ Graph create_Kronecker_graph(const Config& cfg,
                                          c,
                                          diam,
                                          mean_deg,
+                                         num_vertices,
                                          variance);
             // .................................................................
             if (build_graph) {
@@ -117,6 +119,7 @@ Graph create_Kronecker_graph(const Config& cfg,
                                          c,
                                          diam,
                                          mean_deg,
+                                         num_vertices,
                                          variance);
             // .................................................................
             if (build_graph) {
@@ -136,6 +139,8 @@ Graph create_Kronecker_graph(const Config& cfg,
     if (calculate_diam) {
         K[0].state.diameter = diam;
     }
+    K[0].state.mean_deg = mean_deg;
+    K[0].state.num_vertices = num_vertices;
 
     // Return the graph
     return K;
@@ -305,6 +310,7 @@ Graph create_KronGen_graph(const Config& cfg,
     double c_res = -1;
     double diam_res = -1;
     double k_res = 0;
+    double N_res = 1;
     double var_res = -1;
     size_t largest_factor = 0;
 
@@ -379,11 +385,12 @@ Graph create_KronGen_graph(const Config& cfg,
                                                            var_res, var_curr);
 
             }
-            k_res = Utils::Kronecker_mean_degree(k_res, k_curr);
         }
         if (calculate_diam) {
             diam_res = std::max(diam_res, diam_curr);
         }
+        k_res = Utils::Kronecker_mean_degree(k_res, k_curr);
+        N_res = Utils::Kronecker_num_vertices(N_res, n_curr);
 
         // If full graph being generated: add self-edges and create Kronecker product
         if (build_graph) {
@@ -400,6 +407,7 @@ Graph create_KronGen_graph(const Config& cfg,
     K[0].state.mean_deg = k_res;
     K[0].state.num_factors = n_factors;
     K[0].state.num_Paretos = n_Paretos;
+    K[0].state.num_vertices = N_res;
     K[0].state.var = var_res;
 
     Utils::remove_self_edges(K);

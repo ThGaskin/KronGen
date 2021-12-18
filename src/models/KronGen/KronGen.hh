@@ -61,10 +61,11 @@ struct VertexState
     double clustering_global = -1;
     double diameter = -1;
     double error; // optimisation error
-    size_t largest_comp = -1;
+    int largest_comp = -1;
     double mean_deg = -1;
     size_t num_factors = 1; // number of Kronecker factors
     size_t num_Paretos = 1;
+    int num_vertices = -1;
     double var = -1;
 
 };

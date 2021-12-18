@@ -88,13 +88,7 @@ num_vertices:
   select_and_combine:
     fields:
       data_val:
-        path: data/KronGen/NetworkAnalyser/graph_data/_vertices
-        transform:
-          - operation: .isel
-            args: [!dag_prev ]
-            kwargs:
-              vertex_idx: -1
-          - add: [!dag_prev , 1]
+        path: data/KronGen/NetworkAnalyser/graph_data/num_vertices
   <<: [*sweep_param, *x_coord]
   target: num_vertices
   compute_only: [save_data, data, the_dm]
@@ -112,6 +106,7 @@ optimisation_error:
         path: data/KronGen/NetworkAnalyser/graph_data/optimisation_error
   compute_only: [save_data, data, the_dm]
   <<: [*sweep_param, *x_coord]
+  plot_target_line: false
   helpers:
     set_title:
       title: Optimisation error $H$
@@ -139,6 +134,22 @@ n_factors:
   select_and_combine:
     fields:
       data_val:
+        path: data/KronGen/NetworkAnalyser/graph_data/n_factors
+  compute_only: [save_data, data, the_dm]
+  <<: [*sweep_param, *x_coord]
+  plot_target_line: false
+  helpers:
+    set_title:
+      title: Number of Kronecker factors
+    set_labels:
+      <<: *x_label
+      y: $d$
+
+n_Paretos:
+  based_on: sweep_stats
+  select_and_combine:
+    fields:
+      data_val:
         path: data/KronGen/NetworkAnalyser/graph_data/n_Paretos
   compute_only: [save_data, data, the_dm]
   <<: [*sweep_param, *x_coord]
@@ -148,7 +159,7 @@ n_factors:
       title: Number of Pareto points
     set_labels:
       <<: *x_label
-      y: $d$
+      y: $n_\mathrm{Paretos}$
 
 # Diameter estimate coefficient
 diameter_coeff:

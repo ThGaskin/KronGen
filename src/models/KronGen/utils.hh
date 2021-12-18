@@ -166,6 +166,7 @@ void calculate_properties(Graph& h,
                           double& c_global,
                           double& diam,
                           double& mean_deg,
+                          size_t& num_vertices,
                           double& variance)
 {
     // Calculate the clustering coefficient
@@ -176,6 +177,7 @@ void calculate_properties(Graph& h,
             c_global = c_temp;
             mean_deg = deg_stats.first;
             variance = deg_stats.second;
+            num_vertices = boost::num_vertices(h);
             first_run = false;
         }
         else {
@@ -190,6 +192,7 @@ void calculate_properties(Graph& h,
                                                  variance,
                                                  deg_stats.second);
             mean_deg = Kronecker_mean_degree(mean_deg, deg_stats.first);
+            num_vertices = Kronecker_num_vertices(num_vertices, boost::num_vertices(h));
         }
     }
 
