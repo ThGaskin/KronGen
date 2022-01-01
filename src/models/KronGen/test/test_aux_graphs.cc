@@ -11,6 +11,7 @@
 #include <utopia/core/graph.hh>
 
 #include "../graph_creation.hh"
+#include "../graph_properties.hh"
 #include "../../NetworkAnalyser/graph_metrics.hh"
 #include "test_utils.hh"
 #include "../utils.hh"
@@ -20,6 +21,7 @@ using namespace Utopia::TestTools;
 using namespace Utopia::Models::KronGen::AuxGraphs;
 using namespace Utopia::Models::KronGen::TestUtils;
 using namespace Utopia::Models::KronGen::Utils;
+using namespace Utopia::Models::KronGen::GraphProperties;
 using namespace Utopia::Models::NetworkAnalyser;
 using namespace Utopia;
 
@@ -74,7 +76,7 @@ BOOST_FIXTURE_TEST_CASE(chain_graph, Test_Graph)
         const auto g = create_chain_graph<Graph>(N);
 
         BOOST_TEST(num_vertices(g) == N);
-        BOOST_TEST(2.0*num_edges(g)/N == mean_degree_chain_graph(N));
+        BOOST_TEST(2.0*num_edges(g)/N == mean_degree_chain(N));
         BOOST_TEST(diameter(g) == N - 1);
         assert_no_parallel_self_edges(g);
     }

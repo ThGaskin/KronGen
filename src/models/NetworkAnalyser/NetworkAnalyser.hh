@@ -1,5 +1,6 @@
 #ifndef UTOPIA_MODELS_NETWORKANALYSER_HH
 #define UTOPIA_MODELS_NETWORKANALYSER_HH
+#define UNUSED(expr) do { (void)(expr); } while (0)
 
 // standard library includes
 #include <random>
@@ -80,6 +81,10 @@ class NetworkAnalyser : public Model<NetworkAnalyser<GraphType>, ModelTypes>
     const std::pair<std::string, bool> _distance_avg;
     const std::pair<std::string, bool> _distance_harmonic;
     const std::pair<std::string, bool> _distance_max;
+    const std::pair<std::string, bool> _err;
+    const std::pair<std::string, bool> _large_comp;
+    const std::pair<std::string, bool> _n_factors;
+    const std::pair<std::string, bool> _n_Paretos;
     const std::pair<std::string, bool> _reciprocity;
 
     /// Graph datagroup
@@ -96,6 +101,11 @@ class NetworkAnalyser : public Model<NetworkAnalyser<GraphType>, ModelTypes>
     const std::shared_ptr<DataSet> _dset_distance_avg;
     const std::shared_ptr<DataSet> _dset_distance_harmonic;
     const std::shared_ptr<DataSet> _dset_distance_max;
+    const std::shared_ptr<DataSet> _dset_error;
+    const std::shared_ptr<DataSet> _dset_largest_comp;
+    const std::shared_ptr<DataSet> _dset_num_factors;
+    const std::shared_ptr<DataSet> _dset_n_Paretos;
+    const std::shared_ptr<DataSet> _dset_num_vertices;
     const std::shared_ptr<DataSet> _dset_reciprocity;
 
   public:
@@ -134,6 +144,10 @@ class NetworkAnalyser : public Model<NetworkAnalyser<GraphType>, ModelTypes>
                                                 this->_cfg["graph_analysis"])),
         _distance_max("distance_max", get_as<bool>("distances",
                                                 this->_cfg["graph_analysis"])),
+        _err("optimisation_error", true),
+        _large_comp("largest_comp", true),
+        _n_factors("n_factors", true),
+        _n_Paretos("n_Paretos", true),
         _reciprocity("reciprocity", get_as<bool>("reciprocity",
                                                 this->_cfg["graph_analysis"])),
 
@@ -150,6 +164,11 @@ class NetworkAnalyser : public Model<NetworkAnalyser<GraphType>, ModelTypes>
         _dset_distance_avg(this->create_dataset(_distance_avg)),
         _dset_distance_harmonic(this->create_dataset(_distance_harmonic)),
         _dset_distance_max(this->create_dataset(_distance_max)),
+        _dset_error(this->create_dataset(_err)),
+        _dset_largest_comp(this->create_dataset(_large_comp)),
+        _dset_num_factors(this->create_dataset(_n_factors)),
+        _dset_n_Paretos(this->create_dataset(_n_Paretos)),
+        _dset_num_vertices(this->create_dataset({"num_vertices", true})),
         _dset_reciprocity(this->create_dataset(_reciprocity))
 
   {
@@ -171,7 +190,12 @@ class NetworkAnalyser : public Model<NetworkAnalyser<GraphType>, ModelTypes>
       {
           std::shared_ptr<DataSet> dset{};
           if (selection.first == "diameter"
-           or selection.first == "clustering_global")
+           or selection.first == "clustering_global"
+           or selection.first == "optimisation_error"
+           or selection.first == "largest_comp"
+           or selection.first == "n_factors"
+           or selection.first == "n_Paretos"
+           or selection.first == "num_vertices")
           {
               dset = this->create_dset(selection.first, _dgrp_g, {});
               dset->add_attribute("dim_name__0", "time");
@@ -298,6 +322,8 @@ class NetworkAnalyser : public Model<NetworkAnalyser<GraphType>, ModelTypes>
   void write_data() {}
   void epilog() {
 
+      const size_t num_vertices = boost::num_vertices(_g);
+
       if (this->_enable_analysis) {
 
           this->_log->info ("Writing data ... ");
@@ -330,9 +356,24 @@ class NetworkAnalyser : public Model<NetworkAnalyser<GraphType>, ModelTypes>
           }
 
           if (_degree.second){
-              _dset_degree->write(v, v_end, [this](const auto v) {
-                  return this->_g[v].state.degree;
-              });
+              if (num_vertices == 2 and _g[0].state.num_vertices != -1) {
+                  _dset_degree->write(v, v_end, [this](const auto v) {
+                      return this->_g[0].state.mean_deg;
+                      UNUSED(v);
+                  });
+              }
+              else {
+                  _dset_degree->write(v, v_end, [this](const auto v) {
+                      return this->_g[v].state.degree;
+                  });
+              }
+          }
+
+          if (num_vertices == 2 and _g[0].state.num_vertices != -1) {
+              _dset_num_vertices->write(_g[0].state.num_vertices);
+          }
+          else {
+                _dset_num_vertices->write(boost::num_vertices(_g));
           }
 
           if (_diameter.second){
@@ -349,6 +390,22 @@ class NetworkAnalyser : public Model<NetworkAnalyser<GraphType>, ModelTypes>
               _dset_distance_max->write(v, v_end, [this](const auto v) {
                   return this->_g[v].state.distance_max;
               });
+          }
+
+          if (_err.second){
+              _dset_error->write(_g[0].state.error);
+          }
+
+          if (_large_comp.second){
+              _dset_largest_comp->write(_g[0].state.largest_comp);
+          }
+
+          if (_n_factors.second){
+              _dset_num_factors->write(_g[0].state.num_factors);
+          }
+
+          if (_n_Paretos.second){
+              _dset_n_Paretos->write(_g[0].state.num_Paretos);
           }
 
           this->_log->info ("Data written.");

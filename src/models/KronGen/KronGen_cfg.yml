@@ -17,21 +17,26 @@ create_graph:
       oriented: !is-bool false
       p_rewire: !is-probability 0.2
 
-  num_vertices: !is-positive-int 200
-  mean_degree: !is-positive 4
-  model: ErdosRenyi
+  num_vertices: !is-positive-int 300
+  mean_degree: !is-positive 8
+  model: KronGen
+  build_graph: true
   <<: *defaults
   Kronecker:
+    power: 3
     Graph1:
-      num_vertices: 50
-      mean_degree: 10
-      model: ErdosRenyi
+      num_vertices: 5
+      mean_degree: !expr (8/5)
+      model: star
       <<: *defaults
-    Graph2:
-      <<: *defaults
+  KronGen:
+    build_graph: true
 
 # Graph analysis
 NetworkAnalyser:
+  seed: 42
+  num_steps: 1
+  write_every: 1
   graph_analysis:
     enabled: true
     centralities: false

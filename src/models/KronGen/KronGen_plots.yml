@@ -3,54 +3,314 @@ _:
   sweep_parameter: &sweep_param
     select_and_combine:
       fields:
-        diameter:
+        clustering:
           path: cfg/NetworkAnalyser
   x_coord: &x_coord
-    x: diameter
+    x: clustering
   x_label: &x_label
-    x: Target diameter
+    x: $c_T$
 
-# ... Clustering over sweep parameter ..........................................
-clustering:
-  based_on: clustering
-  <<: [*sweep_param, *x_coord]
-  helpers:
-    set_labels:
-      <<: *x_label
-
-# ... Graph mean degree ........................................................
-mean_degree:
-  based_on: mean_degree
-  <<: [*sweep_param, *x_coord]
-  helpers:
-    set_labels:
-      <<: *x_label
-
-# ... Graph num vertices .......................................................
-num_vertices:
-  based_on: num_vertices
-  <<: [*sweep_param, *x_coord]
-  helpers:
-    set_labels:
-      <<: *x_label
-
-# ... Graph diameter ...........................................................
-diameter:
-  based_on: diameter_target
-  <<: [*sweep_param, *x_coord]
-  helpers:
-    set_labels:
-      <<: *x_label
-
-# ... Graph plot ...............................................................
+### ... Universe plots .........................................................
+# Graph plot
 graph:
   based_on: graph
   enabled: false
 
-# ... Network statistics .......................................................
+# Overview of network statistics
 nw_stats:
-  based_on: nw_stats
-  
-# ... Diameter estimate coefficient ............................................
+  based_on: KronGen_default
+  creator: universe
+  universes: all
+  module: model_plots.KronGen
+  plot_func: network_stats
+
+### ... 1D Multiverse plots .....................................................
+clustering:
+  based_on: sweep_stats
+  select_and_combine:
+    fields:
+      data_val:
+        path: data/KronGen/NetworkAnalyser/graph_data/clustering_global
+  target: clustering
+  <<: [*sweep_param, *x_coord]
+  compute_only: [save_data, data, the_dm]
+  helpers:
+    set_labels:
+      <<: *x_label
+    set_title:
+      title: Clustering coefficient $c$
+    set_limits:
+      y: [0, 1]
+
+diameter:
+  based_on: sweep_stats
+  select_and_combine:
+    fields:
+      data_val:
+        path: data/KronGen/NetworkAnalyser/graph_data/diameter
+  <<: [*sweep_param, *x_coord]
+  compute_only: [save_data, data, the_dm]
+  target: diameter
+  helpers:
+    set_title:
+      title: Diameter $d$
+    set_labels:
+      <<: *x_label
+
+mean_degree:
+  based_on: sweep_stats
+  select_and_combine:
+    fields:
+      data_val:
+        path: data/KronGen/NetworkAnalyser/graph_data/degree
+  transform:
+    - .mean: [!dag_tag data_val, vertex_idx]
+      tag: data_values
+    - operation: save_data
+      args: [!dag_tag data_values, !dag_tag out_dir]
+      tag: save_data
+    - operation: xr.Dataset
+      kwargs:
+        data_vars:
+          y: !dag_tag data_values
+      tag: data
+  target: mean_degree
+  compute_only: [save_data, data, the_dm]
+  <<: [*sweep_param, *x_coord]
+  helpers:
+    set_title:
+      title: Mean degree $\bar{k}$
+    set_labels:
+      <<: *x_label
+
+num_vertices:
+  based_on: sweep_stats
+  select_and_combine:
+    fields:
+      data_val:
+        path: data/KronGen/NetworkAnalyser/graph_data/num_vertices
+  <<: [*sweep_param, *x_coord]
+  target: num_vertices
+  compute_only: [save_data, data, the_dm]
+  helpers:
+    set_title:
+      title: Number of vertices $N$
+    set_labels:
+      <<: *x_label
+
+optimisation_error:
+  based_on: sweep_stats
+  select_and_combine:
+    fields:
+      data_val:
+        path: data/KronGen/NetworkAnalyser/graph_data/optimisation_error
+  compute_only: [save_data, data, the_dm]
+  <<: [*sweep_param, *x_coord]
+  plot_target_line: false
+  helpers:
+    set_title:
+      title: Optimisation error $H$
+    set_labels:
+      <<: *x_label
+      y: Error
+
+largest_factor:
+  based_on: sweep_stats
+  select_and_combine:
+    fields:
+      data_val:
+        path: data/KronGen/NetworkAnalyser/graph_data/largest_comp
+  compute_only: [save_data, data, the_dm]
+  <<: [*sweep_param, *x_coord]
+  helpers:
+    set_title:
+      title: Largest factor size (N)
+    set_labels:
+      <<: *x_label
+      y: $N$
+
+n_factors:
+  based_on: sweep_stats
+  select_and_combine:
+    fields:
+      data_val:
+        path: data/KronGen/NetworkAnalyser/graph_data/n_factors
+  compute_only: [save_data, data, the_dm]
+  <<: [*sweep_param, *x_coord]
+  plot_target_line: false
+  helpers:
+    set_title:
+      title: Number of Kronecker factors
+    set_labels:
+      <<: *x_label
+      y: $d$
+
+n_Paretos:
+  based_on: sweep_stats
+  select_and_combine:
+    fields:
+      data_val:
+        path: data/KronGen/NetworkAnalyser/graph_data/n_Paretos
+  compute_only: [save_data, data, the_dm]
+  <<: [*sweep_param, *x_coord]
+  plot_target_line: false
+  helpers:
+    set_title:
+      title: Number of Pareto points
+    set_labels:
+      <<: *x_label
+      y: $n_\mathrm{Paretos}$
+
+# Diameter estimate coefficient
 diameter_coeff:
-  based_on: diameter_coeff
+  based_on: [.dag.generic.facet_grid, KronGen_default, dag_defaults]
+  creator: multiverse
+  expected_multiverse_ndim: [1,2,3,4,5]
+  kind: line
+  select_and_combine:
+    fields:
+      mean_degree:
+        path: cfg
+        transform:
+          - getitem: [!dag_prev , KronGen]
+          - getitem: [!dag_prev , create_graph]
+          - getitem: [!dag_prev , mean_degree]
+          - xr.: [ufuncs.log, !dag_prev ]
+      N:
+        path: cfg
+        transform:
+          - getitem: [!dag_prev , KronGen]
+          - getitem: [!dag_prev , create_graph]
+          - getitem: [!dag_prev , num_vertices]
+          - xr.: [ufuncs.log, !dag_prev ]
+      diameter:
+        path: data/KronGen/NetworkAnalyser/graph_data/diameter
+        transform:
+          - operation: .isel
+            args: [!dag_prev ]
+            kwargs:
+              time: -1
+  transform:
+    - operation: div
+      args: [!dag_tag mean_degree, !dag_tag N]
+    - operation: mul
+      args: [!dag_prev , !dag_tag diameter]
+      tag: data
+  helpers:
+    set_title:
+      title: Proportionality constant between $\log(N)/\log(\bar{k})$ and diameter $l$
+    set_labels:
+      x: $\bar{k}$
+      y: $l * \log(\bar{k})/\log(N)$
+
+### ... 2D Multiverse plots ....................................................
+# Errorbar plots (1 sweep parameter + averaging dimension)
+clustering_err:
+  based_on: error_bar_plot
+  select_and_combine:
+    fields:
+      data_val:
+        path: data/KronGen/NetworkAnalyser/graph_data/clustering_global
+        transform:
+          - operation: .isel
+            args: [!dag_prev ]
+            kwargs:
+              time: -1
+  helpers:
+    set_title:
+      title: Clustering coefficient
+    set_labels:
+      <<: *x_label
+      y: Number of vertices
+    set_limits:
+      x: [0, 1]
+      y: [0, 1]
+
+diameter_err:
+  based_on: error_bar_plot
+  select_and_combine:
+    fields:
+      data_val:
+        path: data/KronGen/NetworkAnalyser/graph_data/diameter
+        transform:
+          - operation: .isel
+            args: [!dag_prev ]
+            kwargs:
+              time: -1
+  helpers:
+    set_title:
+      title: Diameter
+    set_labels:
+      <<: *x_label
+      y: Number of vertices
+    set_limits:
+      x: [0, 1]
+
+num_vertices_err:
+  based_on: error_bar_plot
+  select_and_combine:
+    fields:
+      data_val:
+        path: data/KronGen/NetworkAnalyser/graph_data/_vertices
+        transform:
+          - operation: .isel
+            args: [!dag_prev ]
+            kwargs:
+              vertex_idx: -1
+          - add: [!dag_prev , 1]
+
+mean_degree_err:
+  based_on: error_bar_plot
+  select_and_combine:
+    fields:
+      data_val:
+        path: data/KronGen/NetworkAnalyser/graph_data/degree
+        transform:
+          - operation: .isel
+            args: [!dag_prev ]
+            kwargs:
+              time: -1
+          - .mean: [!dag_prev , vertex_idx]
+
+# Two-dimensional heat map plot (2 sweep dimensions)
+heatmap:
+  based_on: KronGen_default
+  creator: multiverse
+  expected_multiverse_ndim: [2,3,4,5]
+  module: model_plots.KronGen
+  plot_func: heatmap
+  select_and_combine:
+    fields:
+      x:
+        path: cfg/KronGen
+        transform:
+          - getitem: [!dag_prev , create_graph]
+          - getitem: [!dag_prev , KronGen]
+          - getitem: [!dag_prev , max_dimension]
+      y:
+        path: cfg/KronGen
+        transform:
+          - getitem: [!dag_prev , create_graph]
+          - getitem: [!dag_prev , KronGen]
+          - getitem: [!dag_prev , tolerance]
+      z:
+        path: data/KronGen/NetworkAnalyser/graph_data/n_Paretos
+        transform:
+          - operation: .isel
+            args: [!dag_prev ]
+            kwargs:
+              time: -1
+  transform:
+    - operation: xr.Dataset
+      kwargs:
+        data_vars:
+          z: !dag_tag z
+      tag: data
+  x: max_dimension
+  y: tolerance
+  helpers:
+    set_title:
+      title: Number of Pareto points
+    set_labels:
+      x: $d_\mathrm{max}$
+      y: $\epsilon$

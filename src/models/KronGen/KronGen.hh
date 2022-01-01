@@ -58,10 +58,15 @@ struct VertexState
 
     // global statistics: can be calculated during Kronecker tensor product
     // process and stored in **first** vertex: access via _g[0].state.__name__
-    double mean_deg = -1;
-    double var = -1;
     double clustering_global = -1;
     double diameter = -1;
+    double error; // optimisation error
+    int largest_comp = -1;
+    double mean_deg = -1;
+    size_t num_factors = 1; // number of Kronecker factors
+    size_t num_Paretos = 1;
+    int num_vertices = -1;
+    double var = -1;
 
 };
 

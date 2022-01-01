@@ -1,3 +1,10 @@
-# ... Clustering over sweep parameter ..........................................
+graph:
+  based_on: graph
+  enabled: true
+
 nw_stats:
-  based_on: nw_stats
+  based_on: KronGen_default
+  creator: universe
+  universes: all
+  module: model_plots.KronGen
+  plot_func: network_stats

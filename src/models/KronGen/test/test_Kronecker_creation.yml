@@ -2,6 +2,7 @@
 Graph1:
   params:
     model: Kronecker
+    build_graph: true
     Kronecker:
       Graph1:
         model: WattsStrogatz
@@ -20,6 +21,7 @@ Graph1:
 Graph2:
   params:
     model: Kronecker
+    build_graph: true
     Kronecker:
       Graph1:
         model: complete
@@ -34,6 +36,7 @@ Graph2:
 Graph3:
   params:
     model: Kronecker
+    build_graph: true
     Kronecker:
       Graph1:
         model: complete
@@ -51,6 +54,7 @@ Graph3:
 Graph4:
   params:
     model: Kronecker
+    build_graph: true
     Kronecker:
       Graph1:
         num_vertices: 5
@@ -61,6 +65,7 @@ Graph4:
 Graph5:
   params:
     model: Kronecker
+    build_graph: true
     Kronecker:
       Graph1:
         num_vertices: 10
@@ -72,6 +77,7 @@ Graph5:
 Graph6:
   params:
     model: Kronecker
+    build_graph: true
     Kronecker:
       Graph1:
         num_vertices: 10
@@ -88,6 +94,7 @@ Graph6:
 Graph7:
   params:
     model: Kronecker
+    build_graph: true
     Kronecker:
       Graph1:
         num_vertices: 11
@@ -99,6 +106,7 @@ Graph7:
 Graph8:
   params:
     model: Kronecker
+    build_graph: true
     Kronecker:
       Graph1:
         num_vertices: 10
@@ -108,3 +116,16 @@ Graph8:
           diameter: 6
   throws: std::invalid_argument
   match: "Star graph cannot be created!"
+
+Graph9:
+  params:
+    model: Kronecker
+    build_graph: true
+    Kronecker:
+      power: 2
+      Graph1:
+        num_vertices: 10
+        mean_degree: 4
+        model: star
+        star:
+          diameter: 3
