@@ -103,7 +103,7 @@ double diameter_estimation_ER (const double& N, const double& k)
 // To do: need better estimate here
 double diameter_estimation_regular (const double& N, const double& k)
 {
-    return (1.3 * N/k);
+    return ceil(floor(N/2) / (k/2));
 }
 
 /// Returns an estimate of the diameter of various graph types

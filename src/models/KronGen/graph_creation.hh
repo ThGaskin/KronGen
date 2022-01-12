@@ -82,10 +82,19 @@ Graph create_Kronecker_graph(const Config& cfg,
 
     bool first_run = true;
 
+    const size_t num_factors = get_as<Config>("Kronecker", cfg).size();
+    if (tensor_power > 1 and (num_factors > 2)){
+        throw std::invalid_argument("You have specified both a tensor power graph"
+                  " and multiple graph types! Either remove one of the graphs"
+                  " or remove the 'power' argument!");
+    }
     // Generate Graph
     if (tensor_power < 0) {
+        int i = 0;
         for (const auto& model_map : cfg["Kronecker"]){
             const auto& model_cfg = model_map.second;
+            log->debug("Generating {} graph (factor {}/{}) ...",
+                       get_as<std::string>("model", model_cfg), i+1, num_factors);
             Graph G = AuxGraphs::create_graph<Graph>(model_cfg, rng);
 
             // ... Calulate properties: stored in first vertex .................
@@ -103,12 +112,15 @@ Graph create_Kronecker_graph(const Config& cfg,
                 Utils::add_self_edges(G);
                 K = Utils::Kronecker_product(K, G);
             }
+            ++i;
         }
     }
     else {
         const auto& model_cfg = get_as<Config>("Kronecker", cfg);
         const auto& model_map = get_as<Config>("Graph1", model_cfg);
         for (int i = 0; i<tensor_power; ++i) {
+            log->debug("Generating {} graph (factor {}/{}) ...",
+                       get_as<std::string>("model", model_map), i+1, tensor_power);
             Graph G = AuxGraphs::create_graph<Graph>(model_map, rng);
 
             // ... Calulate properties: stored in first vertex .................

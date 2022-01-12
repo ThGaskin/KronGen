@@ -19,10 +19,11 @@ def network_stats(dm: DataManager, *,
     """Plots a sheet with the network topology stats"""
 
     data = uni['data']['KronGen']['NetworkAnalyser']['graph_data']
-    plots = ['num_vertices']+list(data.keys())[2:] # discard vertices and edges
+    plots = list(data.keys())[2:]
     for x in ['optimisation_error', 'largest_comp', 'n_factors', 'n_Paretos']:
         if (x in plots):
             plots.remove(x)
+    plots.insert(0, plots.pop(plots.index('num_vertices'))) # move 'num_vertices' to front
     n_plots = len(plots)
 
     # .. Setup the figure with two columns and as many rows as necessary .......
