@@ -22,15 +22,12 @@ create_graph:
   model: KronGen
   build_graph: true
   <<: *defaults
-  Kronecker:
-    power: 3
-    Graph1:
-      num_vertices: 5
-      mean_degree: !expr (8/5)
-      model: star
-      <<: *defaults
   KronGen:
     build_graph: true
+    clustering: 0.5
+    min_dimension: 2
+    max_dimension: 6
+    tolerance: 0.1
 
 # Graph analysis
 NetworkAnalyser:
