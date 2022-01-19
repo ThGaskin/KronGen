@@ -25,5 +25,6 @@ parameter_space:
         clustering_global: false
         core_number: true
         degree: false
+        degree_sequence: true
         diameter: false
         distances: true

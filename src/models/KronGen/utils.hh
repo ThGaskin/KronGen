@@ -1,6 +1,10 @@
 #ifndef UTOPIA_MODELS_KRONGEN_UTILS
 #define UTOPIA_MODELS_KRONGEN_UTILS
 
+#include <any>
+#include <map>
+#include <string>
+
 #include <boost/graph/adjacency_list.hpp>
 #include <boost/graph/adjacency_matrix.hpp>
 
@@ -14,8 +18,13 @@ using factor = typename std::vector<size_t>;
 using factors = typename std::vector<std::vector<size_t>>;
 using pair_pt = typename std::pair<std::pair<size_t, double>, std::pair<size_t, double>>;
 using vector_pt = typename std::vector<std::pair<size_t, size_t>>;
+using map_type = typename std::map<std::string, std::map<std::string, std::pair<bool, std::any>>>;
+using entry_type = typename std::map<std::string, std::pair<bool, std::any>>;
 
-// ... Kronecker properties ....................................................
+// .............................................................................
+// ... Kronecker product utility functions .....................................
+// .............................................................................
+
 /// Kronecker product of graphs. Graphs must have a self-loop on every node
 /**
   * \tparam  Graph  The graph type
@@ -63,7 +72,7 @@ Graph Kronecker_product(Graph& G, Graph& H)
   *
   * \return     The number of vertices of G (x) H
 */
-size_t Kronecker_num_vertices (const size_t N, const size_t M)
+double Kronecker_num_vertices (const double N, const double M)
 {
     return (N*M);
 }
@@ -83,6 +92,27 @@ double Kronecker_degree_variance (const double g,
                                   const double v_h)
 {
     return (v_g*v_h + pow(1+g, 2)*v_h + pow(1+h, 2)*v_g);
+}
+
+/// Returns the degree sequence of a Kronecker product of graphs with given degree
+/// sequences seq_1 and seq_2. A degree sequence is a vector of type {{k, n_k}}
+vector_pt Kronecker_degree_sequence(const vector_pt seq_1, const vector_pt seq_2)
+{
+    const size_t k_max = (seq_1.back().first+1)*(seq_2.back().first+1);
+    std::vector<size_t> indices(k_max, 0);
+    for (size_t i = 0; i < seq_1.size(); ++i){
+        for (size_t j = 0; j < seq_2.size(); ++j){
+            const auto k = (seq_1[i].first+1)*(seq_2[j].first+1)-1;
+            indices[k] += seq_1[i].second*seq_2[j].second;
+        }
+    }
+    vector_pt res;
+    for (size_t i = 0; i < indices.size(); ++i){
+        if (indices[i] > 0) {
+            res.push_back({i, indices[i]});
+        }
+    }
+    return res;
 }
 
 /// Caclulate the required mean degree of a Kronecker factor, given the target
@@ -111,6 +141,14 @@ double Kronecker_clustering (const double c_G,
                              const double v_g,
                              const double v_h)
 {
+    // Undefined clustering coefficient only occurs if a single vertex is
+    // combined with a double-handle graph, both of which have undefined
+    // clustering coefficients
+    if (c_G == 0 and c_H == 0 and v_g == 0 and v_h == 0
+        and ((g == 0 and h == 1) or (g == 1 and h == 0))){
+        return 0;
+    }
+
     const double k = Kronecker_mean_degree(g, h);
     const double v_k = Kronecker_degree_variance(g, h, v_g, v_h);
 
@@ -155,62 +193,303 @@ Graph build_initiator_graph (const bool entire_graph_needed) {
         return G;
     }
 }
+// .............................................................................
+// ... Property extraction and analysis functions ..............................
+// .............................................................................
 
-/// Calculates graph properties (clustering coefficient and diameter) on the go
-/// as a Kronecker graph is being generated
-template<typename Graph>
-void calculate_properties(Graph& h,
-                          bool& first_run,
-                          const bool& calculate_c,
-                          const bool& calculate_diam,
-                          double& c_global,
-                          double& diam,
-                          double& mean_deg,
-                          size_t& num_vertices,
-                          double& variance)
+// Collect all parameters that are either target parameters or merely to be
+// calculated from a configuration. Returns a map of keys (parameter names),
+// whether they are to be calculated (true/false + value), and whether they are targets
+// (true/false + value).
+/**
+ * \param analysis_cfg        The cfg of parameters to be analysed
+ * \param target_cfg          The cfg of target parameters
+
+ * \return analysis_targets   A map of parameter names as keys, and a second map
+                              as the value, which contains the values for the
+                              calculations, as well as the target values
+ */
+map_type get_analysis_targets(
+    const Config& analysis_cfg,
+    const Config& target_cfg = YAML::Node())
 {
-    // Calculate the clustering coefficient
-    if (calculate_c) {
-        const double c_temp = NetworkAnalyser::global_clustering_coeff(h);
-        const auto deg_stats = NetworkAnalyser::degree_statistics(h);
-        if (first_run) {
-            c_global = c_temp;
-            mean_deg = deg_stats.first;
-            variance = deg_stats.second;
-            num_vertices = boost::num_vertices(h);
-            first_run = false;
+    using namespace std;
+
+    // Number of vertices are always calculated for Kronecker products
+    map_type analysis_targets
+    = {{"num_vertices", entry_type{{"calculate", make_pair<const bool, double>(true, 1)}}}};
+
+    // First, get potential target parameters. Target parameters are always
+    // automatically calculated.
+    if (target_cfg.size()>0) {
+        analysis_targets["error"]
+          = entry_type{{"calculate", make_pair<const bool, double>
+                       (true, 0)
+                      }};
+        analysis_targets["largest_comp"]
+          = entry_type{{"calculate", make_pair<const bool, size_t>
+                       (true, 0)
+                      }};
+
+        analysis_targets["num_factors"]
+          = entry_type{{"calculate", make_pair<const bool, size_t>
+                       (true, 0)
+                      }};
+
+        analysis_targets["num_Paretos"]
+          = entry_type{{"calculate", make_pair<const bool, size_t>
+                       (true, 0)
+                      }};
+
+        analysis_targets["num_vertices"]["target"]
+          = make_pair<const bool, const double>(true, get_as<double>("num_vertices", target_cfg));
+
+        for (const auto& param : target_cfg){
+            const string param_name = param.first.as<string>();
+
+            if (param_name == "degree_sequence") {
+                analysis_targets[param_name]
+                = entry_type{{"calculate", make_pair<bool, vector_pt>(true, vector_pt{{0, 1}})},
+                             {"target", make_pair<const bool, const string>
+                             (true, get_as<string>(param_name, target_cfg))
+                            }};
+            }
+            else if (param_name == "num_vertices"){
+                analysis_targets[param_name]
+                = entry_type{{"calculate", make_pair<bool, double>(true, 1)},
+                             {"target", make_pair<const bool, const double>
+                             (true, get_as<double>(param_name, target_cfg))
+                            }};
+            }
+            else {
+                analysis_targets[param_name]
+                = entry_type{{"calculate", make_pair<bool, double>(true, 0)},
+                             {"target", make_pair<const bool, const double>
+                             (true, get_as<double>(param_name, target_cfg))
+                            }};
+            }
+            if (param_name == "clustering") {
+                analysis_targets["degree_variance"]
+                = entry_type{{"calculate", make_pair<bool, double>(true, 0)},
+                             {"target", make_pair<const bool, const double>(false, -1)
+                            }};
+            }
         }
-        else {
-            c_global = Kronecker_clustering(c_global,
-                                            c_temp,
-                                            mean_deg,
-                                            deg_stats.first,
-                                            variance,
-                                            deg_stats.second);
-            variance = Kronecker_degree_variance(mean_deg,
-                                                 deg_stats.first,
-                                                 variance,
-                                                 deg_stats.second);
-            mean_deg = Kronecker_mean_degree(mean_deg, deg_stats.first);
-            num_vertices = Kronecker_num_vertices(num_vertices, boost::num_vertices(h));
+    }
+    // Next, add any potential analysis targets that are not already included in
+    // the target config
+
+    for (const auto& param : analysis_cfg){
+        const string param_name = param.first.as<string>();
+
+        if (analysis_targets.find(param_name) == analysis_targets.end()) {
+
+
+            if (get_as<bool>(param_name, analysis_cfg) == false) {
+              continue;
+            }
+            if (param_name == "enabled") {
+              continue;
+            }
+
+            if (param_name == "degree_sequence") {
+                analysis_targets[param_name]
+                = entry_type{{"calculate", make_pair<bool, vector_pt>(true, vector_pt{{0, 1}})},
+                             {"target", make_pair<const bool, const std::string>
+                             (false, "")
+                            }};
+            }
+            else {
+                analysis_targets[param_name]
+                = entry_type{{"calculate", make_pair<const bool, double>(true, 0)},
+                             {"target", make_pair<const bool, const int>(false, -1)}};
+            }
+
+            // If the clustering coefficient is included either as a target or
+            // analysis parameter, the mean degrees and the degree variance must
+            // also be calculated
+            if (param_name == "clustering") {
+                if (analysis_targets.find("mean_degree") == analysis_targets.end()){
+                    analysis_targets["mean_degree"]
+                      = entry_type{{"calculate", make_pair<const bool, double>(true, 0)},
+                                   {"target", make_pair<const bool, const double>(false, -1)}};
+                }
+                if (analysis_targets.find("degree_variance") == analysis_targets.end()){
+                    analysis_targets["degree_variance"]
+                      = entry_type{{"calculate", make_pair<const bool, double>(true, 0)},
+                                   {"target", make_pair<const bool, const double>(false, -1)}};
+                }
+            }
         }
     }
 
-    // Calculate the diameter
-    if (calculate_diam) {
-        diam = std::max(diam, NetworkAnalyser::diameter(h));
+    return analysis_targets;
+
+}
+
+// Calculates the graph properties with a given map of analysis parameters
+/**
+ * \tparam h                   The current graph factor
+ * \tparam Logger             The model logger
+ * \param analysis_targets    The map of calculated parameters from previous factors
+ */
+template<typename Graph, typename Logger>
+void calculate_properties(const Graph& h,
+                          map_type& analysis_targets,
+                          const Logger& log)
+{
+    for (auto& p : analysis_targets) {
+        const std::string param = p.first;
+        if (analysis_targets[param]["calculate"].first == false){
+            continue;
+        }
+
+        log->debug("Calculating parameter {} ...", param);
+
+        double k, v = 0;
+        std::pair<double, double> degree_statistics;
+        if ((analysis_targets.find("degree_variance") != analysis_targets.end())
+            or (analysis_targets.find("mean_degree") != analysis_targets.end())
+            or (analysis_targets.find("clustering") != analysis_targets.end()))
+        {
+            degree_statistics = NetworkAnalyser::degree_statistics(h);
+        }
+
+        const auto val = analysis_targets[param]["calculate"].second;
+
+        if (param == "clustering") {
+            k = std::any_cast<double>(analysis_targets["mean_degree"]["calculate"].second);
+            v = std::any_cast<double>(analysis_targets["degree_variance"]["calculate"].second);
+            analysis_targets[param]["calculate"].second
+            = Kronecker_clustering(std::any_cast<double>(val),
+                                   NetworkAnalyser::global_clustering_coeff(h),
+                                   k, degree_statistics.first,
+                                   v, degree_statistics.second);
+        }
+        else if (param == "degree_sequence"){
+            analysis_targets[param]["calculate"].second
+            = Kronecker_degree_sequence(std::any_cast<vector_pt>(val), NetworkAnalyser::degree_sequence(h));
+        }
+        else if (param == "degree_variance"){
+            k = std::any_cast<double>(analysis_targets["mean_degree"]["calculate"].second);
+            analysis_targets[param]["calculate"].second
+            = Kronecker_degree_variance(k,
+                                        degree_statistics.first,
+                                        std::any_cast<double>(val),
+                                        degree_statistics.second);
+        }
+        else if (param == "diameter") {
+            analysis_targets[param]["calculate"].second
+            = std::max(std::any_cast<double>(val), NetworkAnalyser::diameter(h));
+        }
+        else if (param == "largest_comp") {
+            analysis_targets[param]["calculate"].second
+            = std::max(std::any_cast<size_t>(val), boost::num_vertices(h));
+        }
+        else if (param == "mean_degree") {
+            analysis_targets[param]["calculate"].second
+            = Kronecker_mean_degree(std::any_cast<double>(val), degree_statistics.first);
+        }
+        else if (param == "num_factors") {
+            analysis_targets[param]["calculate"].second = std::any_cast<size_t>(val)+1;
+        }
+        else if (param == "num_vertices"){
+            analysis_targets[param]["calculate"].second
+            = Kronecker_num_vertices(std::any_cast<double>(val), boost::num_vertices(h));
+        }
     }
 }
 
+// Writes the graph properties into the first vertex of the resulting graph
+/**
+ * \param K                   The final Kronecker graph
+ * \param analysis_targets    The map of calculated parameters from previous factors
+ */
+template<typename Graph>
+void write_properties(Graph& K, map_type& analysis_targets){
+    for (auto& p : analysis_targets) {
+        const std::string param = p.first;
+        if (analysis_targets[param]["calculate"].first == false){
+            continue;
+        }
+        auto val = analysis_targets[param]["calculate"].second;
+
+        if (param == "clustering") {
+            K[0].state.clustering_global = std::any_cast<double>(val);
+        }
+        else if (param == "degree_sequence") {
+            K[0].state.degree_sequence = std::any_cast<vector_pt>(val);
+        }
+        else if (param == "degree_variance") {
+            K[0].state.degree_variance = std::any_cast<double>(val);
+        }
+        else if (param == "diameter") {
+            K[0].state.diameter = std::any_cast<double>(val);
+        }
+        else if (param == "error") {
+            K[0].state.error = std::any_cast<double>(val);
+        }
+        else if (param == "largest_comp") {
+            K[0].state.largest_comp = std::any_cast<size_t>(val);
+        }
+        else if (param == "mean_degree") {
+            K[0].state.mean_degree = std::any_cast<double>(val);
+        }
+        else if (param == "num_factors") {
+            K[0].state.num_factors = std::any_cast<size_t>(val);
+        }
+        else if (param == "num_Paretos") {
+            K[0].state.num_Paretos = std::any_cast<size_t>(val);
+        }
+        else if (param == "num_vertices") {
+            K[0].state.num_vertices = std::any_cast<double>(val);
+        }
+    }
+}
+
+// Extracts just the target names and numerical values from a map of analysis
+// and target properties
+std::map<std::string, double> extract_targets(
+    map_type& analysis_and_targets,
+    const bool numerical_only = true)
+{
+    std::map<std::string, double> targets;
+    for (auto& p : analysis_and_targets) {
+        const std::string param = p.first;
+        if (analysis_and_targets[param]["target"].first == false) {
+            continue;
+        }
+        if (numerical_only) {
+            if (param == "degree_sequence") {
+                continue;
+            }
+        }
+
+        targets[param]
+        = std::any_cast<double>(analysis_and_targets[param]["target"].second);
+
+    }
+
+    return targets;
+}
+
+// .............................................................................
 // ... Grid search utility functions ...........................................
+// .............................................................................
+
 // Returns pairs of positive integer factors, including (1, N) if specified
-factors get_factors (const size_t N, const bool include_trivial=true) {
+// Throws an error if N is not strictly positive
+factors get_factors (const size_t N, const bool include_trivial=false) {
+
+    if (N <= 0) {
+        throw std::invalid_argument("N must be positive!");
+    }
 
     factors res {{1, N}};
     if (not include_trivial){
         res.pop_back();
     }
-    const size_t limit = int(sqrt(N));
+    const size_t limit = int(sqrt(N)+1);
     res.reserve(limit);
 
     for (size_t i = 2; i < limit; ++i) {
@@ -225,7 +504,7 @@ factors get_factors (const size_t N, const bool include_trivial=true) {
 
 // Returns pairs of positive integers such that (i+1)(j+1)=(k+1),
 // including (0, k) if specified
-factors get_k_factors (size_t k, const bool include_trivial=true) {
+factors get_k_factors (size_t k, const bool include_trivial=false) {
 
     factors res {{0, k}};
     if (not include_trivial){
@@ -244,45 +523,46 @@ factors get_k_factors (size_t k, const bool include_trivial=true) {
     return res;
 }
 
-// Returns d-tuples of positive integer factors of N, including reducible
-// tuples (1, 1, 1, ..., q1, ..., qd) if specified
+// Returns d-tuples of positive integer factors of N
 /*
- * \param val           The natural number to factorise
- * \param factor_func   The factorisation function
- * \param d             The number of factors
- * \param include_ones  Whether or not to include reducible tuples (this
-                        effectively means including all factors up to d)
- * \returns res         A list of tuples
+ * \param val                   The natural number to factorise
+ * \param factor_func           The factorisation function
+ * \param d_min                 The minimum factorisation
+ * \param d_max                 The maximum factorisation
+ *
+ * \returns res                 A list of tuples
+ * \throws invalid_argument     If d_min > d_max
  */
 factors get_d_factors (const size_t val,
                        factors (*factor_func)(size_t, bool),
                        const size_t d_min,
-                       const size_t d_max,
-                       const bool include_ones)
+                       const size_t d_max)
 {
+    if (d_max < d_min) {
+        throw std::invalid_argument("d_max must be greater or equal to d_min!");
+    }
+
     if (d_max < 2) {
-        return {{}};
+        return {{val}};
     }
 
-    auto res = factor_func(val, true);
-
-    if ((not include_ones) and (d_min > 1)){
-        res.erase(res.begin());
+    factors res;
+    if (d_min == 1) {
+        res = factors{factor{val}};
     }
-
-    if (res.size() < 1 or d_max == 2){
-        return res;
+    else {
+        res = factor_func(val, false);
     }
 
     auto current_to_do = res;
-
-    for (size_t p = 3; p <= d_max; ++p){
+    size_t starting_dim = d_min == 1 ? 1 : 2;
+    for (size_t p = starting_dim ; p < d_max; ++p){
 
         factors current_done = {};
 
         for (const auto& fac: current_to_do) {
-            for (size_t i=0; i<fac.size(); ++i) {
-                const auto x = factor_func(fac[i], include_ones);
+            for (size_t i=0; i < fac.size(); ++i) {
+                const auto x = factor_func(fac[i], false);
                 for (const auto& x_fac: x) {
                     factor q = factor(fac.begin(), fac.begin()+i);
                     q.insert(q.end(), x_fac.begin(), x_fac.end());
@@ -301,7 +581,7 @@ factors get_d_factors (const size_t val,
                 }
             }
         }
-        if ((include_ones or p > d_min)) {
+        if ((p >= d_min)) {
             if (current_done.size() != 0) {
                 res.insert(res.end(), current_done.begin(), current_done.end());
             }
@@ -332,7 +612,7 @@ factors get_grid (const size_t grid_center,
     factors res = {};
     const auto delta = int(grid_center*err);
     for (size_t i = grid_center - delta; i <= grid_center + delta; ++i) {
-        const auto t = get_d_factors(i, factor_func, d_min, d_max, false);
+        const auto t = get_d_factors(i, factor_func, d_min, d_max);
         if (t.size() == 0){
           continue;
         }

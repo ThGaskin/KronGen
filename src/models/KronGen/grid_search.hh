@@ -24,12 +24,28 @@ using namespace Utopia::Models::KronGen;
 using namespace Utopia::Models::KronGen::GraphTypes;
 
 using factor = typename std::vector<std::size_t>;
+using GraphListType
+= typename std::vector<std::tuple<factor, factor, std::vector<GraphType>>>;
+using target_map_type
+= typename std::map<std::string, std::map<std::string, std::pair<bool, std::any>>>;
 
 // Check function for invalid factor combinations: number of vertices must be
 // larger than the mean degree, and mean degree 1 is only permissible if N = 2
-bool check_validity(const factor& n, const factor& k)
+bool check_validity(const factor& n,
+                    const factor& k,
+                    target_map_type& analysis_and_targets)
 {
+    bool is_scale_free = false;
+    if (analysis_and_targets.find("degree_sequence") != analysis_and_targets.end()){
+        if (analysis_and_targets["degree_sequence"]["target"].first) {
+            is_scale_free = true;
+        }
+    }
+
     if (n.size() != k.size()) {
+        return false;
+    }
+    if (n.size() == 0 or k.size() == 0) {
         return false;
     }
 
@@ -40,166 +56,192 @@ bool check_validity(const factor& n, const factor& k)
             return false;
         }
 
-        if (k[i]<=1 and n[i]!=k[i]+1) {
+        if (k[i]<=1 and n[i]!=(k[i]+1)) {
             return false;
+        }
+        if (is_scale_free) {
+            if (k[i] < 3 and n[i] != (k[i]+1)) {
+                return false;
+            }
         }
     }
 
     return true;
 }
 
-// Find positions for possible graph types (ER, regular, chain)
-void find_possible_types (const factor& n,
+// Find positions for possible graph types
+std::vector<std::vector<GraphType>> find_possible_types (
+                          const factor& n,
                           const factor& k,
-                          const std::vector<double>& target_parameters,
-                          std::vector<std::vector<GraphType>>& graph_types,
-                          const double& max_error)
+                          target_map_type& analysis_and_targets,
+                          const double& grid_size)
 {
-    double chain_err = max_error;
 
-    // Include chain graphs
-    auto g = graph_types.size();
-    if (target_parameters.size() > 2 and target_parameters.back() > 1) {
-        for (size_t t = 0; t < g; ++t) {
-            int current_candidate = -1;
-            for (size_t i = 0; i < k.size(); ++i) {
-                if (k[i] <= 2) {
-                    double curr_est = ObjectiveFuncs::err_func(n[i]-1, target_parameters.back());
-                    if ((curr_est < chain_err)) {
-                        current_candidate = i;
-                        chain_err = curr_est;
-                    }
-                }
+    std::vector<std::vector<GraphType>> type_list
+    = std::vector<std::vector<GraphType>>{{n.size(), GraphType::ErdosRenyi}};
+    if (analysis_and_targets.find("degree_sequence") != analysis_and_targets.end()){
+        if (analysis_and_targets["degree_sequence"]["target"].first == true) {
+            type_list
+            = std::vector<std::vector<GraphType>>{{n.size(), GraphType::KlemmEguiluz}};
+        }
+    }
+
+    // Include chain graphs if the diameter is a target parameter
+    bool diameter_target = false;
+    if (analysis_and_targets.find("diameter") != analysis_and_targets.end()){
+        if (analysis_and_targets["diameter"]["target"].first == true) {
+            diameter_target = true;
+        }
+    }
+
+    if (diameter_target == true) {
+        double err = grid_size;
+        int best_candidate = -1;
+        for (size_t i = 0; i < n.size(); ++i) {
+            if (k[i] > 2) {
+                continue;
             }
-            if (current_candidate != -1) {
-                auto new_type = graph_types[t];
-                new_type[current_candidate] = GraphType::Chain;
-                graph_types.emplace_back(new_type);
+            double curr_est
+            = ObjectiveFuncs::err_func(n[i]-1,
+                std::any_cast<double>(analysis_and_targets["diameter"]["target"].second));
+
+            if ((curr_est < err)) {
+                best_candidate = i;
+                err = curr_est;
             }
         }
+
+        if (best_candidate != -1) {
+            auto new_type = type_list[0];
+            new_type[best_candidate] = GraphType::Chain;
+
+            type_list.emplace_back(new_type);
+        }
+
     }
 
     // Include regular graphs
-    g = graph_types.size();
+    const auto g = type_list.size();
     for (size_t t = 0; t < g; ++t) {
-        size_t n_max = 0;
-        int current_candidate = -1;
+        // size_t n_max = 0;
+        // int best_candidate = -1;
         for (size_t i = 0; i< k.size(); ++i){
-            if ((k[i]%2 == 0) and (n[i] > n_max))
+            if ((k[i]%2 == 0))
             {
-                current_candidate = i;
-                n_max = n[i];
+                // best_candidate = i;
+                // n_max = n[i];
+                auto new_type = type_list[t];
+                new_type[i] = GraphType::Regular;
+                type_list.emplace_back(new_type);
             }
         }
-        if (current_candidate != -1) {
-            auto new_type = graph_types[t];
-            new_type[current_candidate] = GraphType::Regular;
-            graph_types.emplace_back(new_type);
-        }
+        // if (best_candidate != -1) {
+        //     auto new_type = type_list[t];
+        //     new_type[best_candidate] = GraphType::Regular;
+        //     type_list.emplace_back(new_type);
+        // }
     }
+
+    return type_list;
 }
 
 
-/// AOF grid search: loop over N, return candidates that minimise objective
-/// function. No need to generate complete graph
+/// AOF grid search: return candidates from a grid that minimise objective an
+/// aggregate Hamiltonian.
 /**
   * \tparam Logger              The logger type
   *
-  * \param num_factors          Number of Kronecker factors
-  * \param grid_center          Centre of N-k-grid
-  * \param target_parameters    The target parameters
-  * \param obj_func             The objective functions for each parameter
-  * \param weights              The weights used in the aggregate objective
-                                function
-  * \param max_error            The maximum error used to determine grid
-                                search bounds
+  * \param min_factors          Minimum number of Kronecker factors
+  * \param max_factors          Maximum number of Kronecker factors
+  * \param grid_center          Center of the grid to be searched
+  * \param grid_size            The size of the grid
+  * \param targets              The names and values of the target parameters
+  * \param objective_funcs      The weights and objective functions used in the
+                                aggregate objective function
   * \param log                  The model logger
   *
-  * \return result              A vector of tuples of vectors representing
+  * \return GraphListType       A vector of tuples of vectors representing
                                 the factor properties (N, k, type)
-  * @throws invalid_argument    If target parameters are given and number of
-                                target parameters does not match that of
-                                objective functions or weights
   */
-template<typename Logger>
-std::pair<std::vector<std::tuple<factor, factor, std::vector<GraphType>>>, double> grid_search(
+template<typename Logger, typename RNGType, typename obj_func_map_type>
+GraphListType grid_search(
     const size_t& min_factors,
     const size_t& max_factors,
     const std::pair<size_t, size_t>& grid_center,
-    const std::vector<double>& target_parameters,
-    std::vector<std::function<double(double, factor, factor, std::vector<GraphType>)>>& obj_func,
-    const std::vector<double>& weights,
-    const double& max_error,
-    const Logger& log)
+    const double& grid_size,
+    target_map_type& analysis_and_targets,
+    obj_func_map_type& objective_funcs,
+    const Logger& log,
+    RNGType& rng)
 {
-
-    // If no target parameters are given, simply return starting values
-    if (target_parameters.empty()) {
-        return {{{{grid_center.first}, {grid_center.second}, {GraphType::ErdosRenyi}}}, 0.};
-    }
-
-    // Number of target parameters, objective functions, and weights must be equal
-    if ((target_parameters.size() != obj_func.size())
-       or (obj_func.size() != weights.size())
-       or (weights.size() != target_parameters.size())) {
-           throw std::invalid_argument("Number of target parameters, objective "
-                                       "functions, and weights do not match!");
-    }
 
     // Get grids in N and k using interval bounds
     log->debug("Setting up grid ...");
-    const auto n_grid = Utils::get_N_grid(grid_center.first,
-                                          max_error, min_factors, max_factors);
-    const auto k_grid = Utils::get_k_grid(grid_center.second,
-                                          max_error, min_factors, max_factors);
-    log->debug("Grid set up.");
+    auto n_grid = Utils::get_N_grid(grid_center.first, grid_size,
+                                          min_factors, max_factors);
+    auto k_grid = Utils::get_k_grid(grid_center.second, grid_size,
+                                          min_factors, max_factors);
 
+    // Extract target parametes from the analysis_and_targets map and place into
+    // separate map
+    const auto targets = Utils::extract_targets(analysis_and_targets);
+
+
+    // If the grid is empty, return grid center
     if (n_grid.empty() or k_grid.empty()) {
         log->warn("No factorisation of either N or k possible! Increase values.");
-        return {{{{grid_center.first}, {grid_center.second}, {GraphType::ErdosRenyi}}}, 0.};
+        n_grid = {{grid_center.first}};
+        k_grid = {{grid_center.second}};
     }
 
     // Initialise vector for resulting factors and resulting error
-    std::vector<std::tuple<factor, factor, std::vector<GraphType>>> res = {};
+    std::vector<std::tuple<factor, factor, std::vector<GraphType>>> Paretos = {};
     double error = -1;
 
     // Perform grid search
+    log->debug("Commencing grid search ...");
     for (const auto& n: n_grid) {
          for (const auto& k: k_grid) {
 
             // Ascertain n and k factors are valid
-            if (not check_validity(n, k)) {
+            if (not check_validity(n, k, analysis_and_targets)) {
                 continue;
             }
 
-            // List possible type combinations
-            std::vector<std::vector<GraphType>> graph_types;
-            graph_types.emplace_back(n.size(), GraphType::ErdosRenyi);
-            find_possible_types(n, k, target_parameters, graph_types, max_error);
+            // Collect possible graph types
+            const auto graph_types = find_possible_types(n, k,
+                                               analysis_and_targets, grid_size);
 
             // Calculate error function for all types and all factors considered
             for (const auto& t : graph_types) {
                 double current_err = 0;
-                for (size_t i = 0; i < target_parameters.size(); ++i) {
-                    current_err += weights[i]*obj_func[i](target_parameters[i], n, k, t);
+                for (const auto& p : targets) {
+
+                    const std::string param = p.first;
+
+                    const double weight = objective_funcs[param].first;
+                    const auto err = objective_funcs[param].second(p.second, n, k, t, rng);
+                    current_err += weight*err;
                 }
 
                 // If error constant, add current factorisation to set of Pareto points
                 if (current_err == error) {
-                    res.emplace_back(std::make_tuple(n, k, t));
+                    Paretos.emplace_back(std::make_tuple(n, k, t));
                 }
 
                 // If error reduced, use curent factorisation
                 else if((current_err < error) or (error == -1)) {
-                    res = {{n, k, t}};
+                    Paretos = {{n, k, t}};
                     error = current_err;
                 }
             }
         }
     }
 
-    // Return Pareto points and the global error
-    return {res, error};
+    // Write the global error value and return the Pareto points
+    analysis_and_targets["error"]["calculate"].second = error;
+
+    return Paretos;
 }
 
 } // namespace KronGen::GridSearch

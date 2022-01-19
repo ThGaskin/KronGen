@@ -1,0 +1,107 @@
+---
+Kronecker1:
+  params:
+    create_graph:
+      model: Kronecker
+      build_graph: false
+      Kronecker:
+        Graph1:
+          model: WattsStrogatz
+          num_vertices: 10
+          mean_degree: 4
+          WattsStrogatz:
+            oriented: false
+            p_rewire: 0.2
+        Graph2:
+          model: WattsStrogatz
+          num_vertices: 10
+          mean_degree: 4
+          WattsStrogatz:
+            oriented: false
+            p_rewire: 0.2
+    NetworkAnalyser:
+      graph_analysis:
+        enabled: true
+        clustering: true
+        diameter: true
+        degree_sequence: true
+
+Kronecker2:
+  params:
+    create_graph:
+      model: Kronecker
+      build_graph: false
+      Kronecker:
+        Graph1:
+          model: WattsStrogatz
+          num_vertices: 10
+          mean_degree: 4
+          WattsStrogatz:
+            oriented: false
+            p_rewire: 0.2
+        Graph2:
+          model: WattsStrogatz
+          num_vertices: 10
+          mean_degree: 4
+          WattsStrogatz:
+            oriented: false
+            p_rewire: 0.2
+    NetworkAnalyser:
+      graph_analysis:
+        enabled: true
+        clustering: false
+        diameter: true
+        degree_sequence: true
+
+KronGen:
+  params:
+    create_graph:
+      model: KronGen
+      build_graph: false
+      KronGen:
+        targets:
+          num_vertices: 50
+          mean_degree: 8
+          degree_sequence: scale-free
+          diameter: 4
+    NetworkAnalyser:
+      graph_analysis:
+        enabled: true
+        clustering_local: true
+        betweenness: true
+        clustering: true
+
+KronGen2:
+  params:
+    create_graph:
+      model: KronGen
+      build_graph: false
+      KronGen:
+        targets:
+          num_vertices: 50
+    NetworkAnalyser:
+      graph_analysis:
+        enabled: false
+        clustering_local: true
+        betweenness: true
+        clustering: true
+
+Write:
+  params:
+    create_graph:
+      model: Kronecker
+      build_graph: false
+      Kronecker:
+        Graph1:
+          model: complete
+          num_vertices: 10
+        Graph2:
+          model: complete
+          num_vertices: 8
+
+    NetworkAnalyser:
+      graph_analysis:
+        enabled: true
+        degree_sequence: true
+        clustering: true
+        diameter: true

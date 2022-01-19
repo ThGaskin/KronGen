@@ -29,4 +29,5 @@ parameter_space:
       <<: *run_defaults
       graph_analysis:
         diameter: true
+        degree_sequence: true
         clustering_global: true

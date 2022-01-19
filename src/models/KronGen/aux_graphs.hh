@@ -10,6 +10,8 @@
 #include "utopia/core/types.hh"
 #include "utopia/core/graph/creation.hh"
 
+#include "graph_types.hh"
+
 namespace Utopia::Models::KronGen::AuxGraphs {
 
 /// Auxiliary graphs used in the KronGen model
@@ -25,15 +27,13 @@ Graph create_zero_c_graph(const std::size_t N, const std::size_t k)
 {
 
     if (N < 2*k) {
-        throw std::invalid_argument("N must be at least equal to 2k!");
+        throw std::invalid_argument("N must be greater or equal to 2k!");
     }
-
-    else if (N%2) {
+    if (N%2) {
         throw std::invalid_argument("N must be even!");
     }
-
     if (k < 2) {
-        return Utopia::Graph::create_complete_graph<Graph>(2);
+        throw std::invalid_argument("k must be greater or equal to 2!");
     }
 
     Graph g{N};
@@ -158,11 +158,37 @@ Graph create_star_graph(const std::size_t N,
             add_edge(x, y, g);
         }
     }
-    //randomise(g, diameter);
+
     return g;
 
 }
 
+template<typename Graph, typename RNGType>
+Graph create_graph(const size_t N,
+                   const size_t k,
+                   const GraphTypes::GraphType t,
+                   RNGType& rng,
+                   double c_t) {
+
+    if ((N == k+1) or (t == GraphTypes::Complete)) {
+        return Utopia::Graph::create_complete_graph<Graph>(N);
+    }
+    else if (t == GraphTypes::Chain) {
+        return create_chain_graph<Graph>(N);
+    }
+    else if (t == GraphTypes::ErdosRenyi) {
+        return Utopia::Graph::create_ErdosRenyi_graph<Graph>(N, k, false, false, rng);
+    }
+    else if (t == GraphTypes::KlemmEguiluz) {
+        return Utopia::Graph::create_KlemmEguiluz_graph<Graph>(N, k, 1-c_t, rng);
+    }
+    else if (t == GraphTypes::Regular) {
+        return Utopia::Graph::create_regular_graph<Graph>(N, k, false);
+    }
+    else {
+        return Graph{};
+    }
+}
 /// Extended create_graph function: calls the Utopia::Graph function of the
 /// same name
 template<typename Graph, typename RNGType>
@@ -191,6 +217,7 @@ Graph create_graph(const Config& graph_cfg, RNGType& rng)
             rng
         );
     }
+
     else {
         return Utopia::Graph::create_graph<Graph>(graph_cfg, rng);
     }

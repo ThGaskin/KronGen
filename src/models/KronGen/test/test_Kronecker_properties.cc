@@ -12,6 +12,7 @@
 #include "../aux_graphs.hh"
 #include "../KronGen.hh"
 #include "../graph_creation.hh"
+#include "test_utils.hh"
 #include "../utils.hh"
 
 #include "../../NetworkAnalyser/graph_metrics.hh"
@@ -32,7 +33,7 @@ struct Infrastructure : public BaseInfrastructure<> {
 struct Test_Graph : Infrastructure {
 
   // undirected
-  using Graph = Utopia::Models::KronGen::GraphType;
+  using Graph = Utopia::Models::KronGen::NWType;
 
 };
 
@@ -44,75 +45,46 @@ BOOST_FIXTURE_TEST_CASE(test_Kronecker_properties, Test_Graph)
 
       [&](auto test_cfg){
 
-          Graph g0{1};
-          add_self_edges(g0);
+          const auto G = GraphCreation::create_graph<Graph>(test_cfg, *rng, log);
 
-          std::vector<std::size_t>N;
-          std::vector<double>k;
-          std::vector<double>var;
-          std::vector<double>c;
-          std::vector<double>diam;
-
-          BOOST_TEST_CHECKPOINT("Generating Kronecker graph ... ");
-          for (const auto& factor_map : test_cfg["Kronecker"]) {
-              auto g = GraphCreation::create_graph<Graph>(factor_map.second, *rng, log);
-
-              const auto model = get_as<std::string>("model", factor_map.second);
-              const auto n_vertices = boost::num_vertices(g);
-              const auto deg_stats = degree_statistics(g);
-              const auto clustering = global_clustering_coeff(g);
-              const double d = diameter(g);
-
-              N.push_back(n_vertices);
-              k.push_back(static_cast<double>(deg_stats.first));
-              var.push_back(static_cast<double>(deg_stats.second));
-              c.push_back(clustering);
-              diam.push_back(d);
-
-              add_self_edges(g);
-              g0 = Kronecker_product(g0, g);
-
-          }
-          remove_self_edges(g0);
+          TestUtils::assert_no_parallel_self_edges(G);
 
           BOOST_TEST_CHECKPOINT("Kronecker graph generated");
 
-          const auto deg_stats = degree_statistics(g0);
-
-          // Check number of vertices
-          const std::size_t n_vertices = boost::num_vertices(g0);
-          BOOST_TEST_CHECKPOINT("Testing vertex count");
-          BOOST_TEST(n_vertices == Kronecker_num_vertices(N[0], N[1]));
-
-          // Check mean degree
-          const double mean_degree = deg_stats.first;
-          BOOST_TEST_CHECKPOINT("Testing mean degree");
-          BOOST_TEST(mean_degree == Kronecker_mean_degree(k[0], k[1]),
+          // Check clustering coefficient
+          const auto c0 = global_clustering_coeff(G);
+          BOOST_TEST_CHECKPOINT("Testing clustering coefficient");
+          BOOST_TEST(c0 == G[0].state.clustering_global,
                      boost::test_tools::tolerance(1.e-12));
+
+          // Check degree sequence
+          const auto deg_seq = degree_sequence(G);
+          BOOST_TEST_CHECKPOINT("Testing degree distribution variance");
+          BOOST_TEST(deg_seq == G[0].state.degree_sequence);
+
+          const auto deg_stats = degree_statistics(G);
 
           // Check degree distribution variance
           const double variance = deg_stats.second;
           BOOST_TEST_CHECKPOINT("Testing degree distribution variance");
-          BOOST_TEST(variance == Kronecker_degree_variance(k[0], k[1], var[0], var[1]),
+          BOOST_TEST(variance == G[0].state.degree_variance,
                      boost::test_tools::tolerance(1.e-12));
 
-          // Check clustering coefficient
-          const auto c_t = Kronecker_clustering(c[0], c[1], k[0], k[1], var[0], var[1]);
-          const auto c0 = global_clustering_coeff(g0);
-          BOOST_TEST_CHECKPOINT("Testing clustering coefficient");
-          BOOST_TEST(c_t == c0, boost::test_tools::tolerance(1.e-12));
-
-          // Check inversion function of clustering
-          // const auto g = get_mean_deg_c(c[0], c_t, k[0], var[0]);
-          // const auto c_G = c_t >= c[0] ? 1 : 0;
-          // BOOST_TEST_CHECKPOINT("Testing clustering inversion function");
-          // BOOST_TEST(Kronecker_clustering(c[0], c_G, k[0], g, var[0], 0) == c_t,
-          //            boost::test_tools::tolerance(1.e-12));
-
           // Check diameter
-          const auto d = diameter(g0);
+          const auto d = diameter(G);
           BOOST_TEST_CHECKPOINT("Testing diameter");
-          BOOST_TEST(d == std::max(diam[0], diam[1]));
+          BOOST_TEST(d == G[0].state.diameter);
+
+          // Check mean degree
+          const double mean_degree = deg_stats.first;
+          BOOST_TEST_CHECKPOINT("Testing mean degree");
+          BOOST_TEST(mean_degree == G[0].state.mean_degree,
+                     boost::test_tools::tolerance(1.e-12));
+
+          // Check number of vertices
+          const std::size_t n_vertices = boost::num_vertices(G);
+          BOOST_TEST_CHECKPOINT("Testing vertex count");
+          BOOST_TEST(n_vertices == G[0].state.num_vertices);
 
       },
       cfg

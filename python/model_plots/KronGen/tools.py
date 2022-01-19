@@ -4,6 +4,7 @@ titles = {
     'clustering_global' : r'Clustering coefficient (global avg)',
     'core_number' : r'Core numbers',
     'degree' : r'Degree distribution',
+    'degree_sequence' : r'Degree distribution',
     'diameter' : r'Diameter',
     'distance_avg' : r'Average path distance',
     'distance_harmonic' : r'Average path distance (harmonic avg)',

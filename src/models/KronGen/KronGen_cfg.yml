@@ -23,8 +23,6 @@ create_graph:
   build_graph: true
   <<: *defaults
   KronGen:
-    build_graph: true
-    clustering: 0.5
     min_dimension: 2
     max_dimension: 6
     tolerance: 0.1
@@ -37,10 +35,11 @@ NetworkAnalyser:
   graph_analysis:
     enabled: true
     centralities: false
-    clustering_coeff: false
-    clustering_global: false
+    clustering_local: false
+    clustering: false
     core_number: false
     degree: true
+    degree_sequence: false
     diameter: false
     distances: false
     reciprocity: false

@@ -5,6 +5,7 @@
 #include "graph_properties.hh"
 #include "graph_types.hh"
 #include "utils.hh"
+#include "graph_definition.hh"
 
 namespace Utopia::Models::KronGen::ObjectiveFuncs {
 
@@ -32,10 +33,12 @@ double err_func(double x, double y) {
   * @throws        Invalid argument if number of factors do not match
   */
 // Missing: clustering for scale-free graphs etc.
+// template<typename Graph, typename RNGType>
 double clustering_obj_func (const double& c_t,
                             const factor& N,
                             const factor& k,
-                            const std::vector<GraphType>& t)
+                            const std::vector<GraphType>& t,
+                            std::mt19937& rng)
 {
     if ((N.size() != k.size()) or (k.size() != t.size())) {
         throw std::invalid_argument("Number of factors do not match!");
@@ -46,7 +49,7 @@ double clustering_obj_func (const double& c_t,
 
     for (size_t i = 0; i < N.size(); ++i){
         k_current = k[i];
-        c_current = GraphProperties::clustering_estimation(N[i], k[i], t[i]);
+        c_current = GraphProperties::clustering_estimation<GraphDefinition::NWType>(N[i], k[i], t[i], c_t, rng);
         v_current = GraphProperties::degree_variance(N[i], k[i], t[i]);
         if (i > 0) {
             c_current = Utils::Kronecker_clustering(c_current, c_previous,
@@ -79,8 +82,11 @@ double clustering_obj_func (const double& c_t,
 double diameter_obj_func (const double& d_t,
                           const factor& N,
                           const factor& k,
-                          const std::vector<GraphType>& t)
+                          const std::vector<GraphType>& t,
+                          std::mt19937& rng)
 {
+
+    UNUSED(rng);
     if ((N.size() != k.size()) or (k.size() != t.size())) {
         throw std::invalid_argument("Number of factors do not match!");
     }
@@ -106,13 +112,15 @@ double diameter_obj_func (const double& d_t,
   *
   * \return err    The error in the specified norm
   */
- double N_obj_func (const double& N_t,
-                    const factor& N,
-                    const factor& k,
-                    const std::vector<GraphType>& t)
+double N_obj_func (const double& N_t,
+                  const factor& N,
+                  const factor& k,
+                  const std::vector<GraphType>& t,
+                  std::mt19937& rng)
 {
     UNUSED(k);
     UNUSED(t);
+    UNUSED(rng);
     double N_res = 1;
     for (const auto& n : N) {
         N_res *= n;
@@ -133,8 +141,10 @@ double diameter_obj_func (const double& d_t,
 double k_obj_func (const double& k_t,
                    const factor& N,
                    const factor& k,
-                   const std::vector<GraphType>& t)
+                   const std::vector<GraphType>& t,
+                   std::mt19937& rng)
 {
+    UNUSED(rng);
     double k_res = 1.0;
     for (size_t i = 0; i < k.size(); ++i) {
         k_res *= (GraphProperties::mean_degree(N[i], k[i], t[i])+1);

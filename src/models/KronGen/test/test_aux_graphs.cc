@@ -12,6 +12,7 @@
 
 #include "../graph_creation.hh"
 #include "../graph_properties.hh"
+#include "../KronGen.hh"
 #include "../../NetworkAnalyser/graph_metrics.hh"
 #include "test_utils.hh"
 #include "../utils.hh"
@@ -25,50 +26,38 @@ using namespace Utopia::Models::KronGen::GraphProperties;
 using namespace Utopia::Models::NetworkAnalyser;
 using namespace Utopia;
 
-struct Infrastructure : public BaseInfrastructure<> {
-    Infrastructure() : BaseInfrastructure<>() {};
-};
+auto logger = Utopia::init_logger("root.KronGen", spdlog::level::info);
 
-struct VertexState {
-    double clustering_global = -1;
-    double diameter = -1;
+struct Infrastructure : public BaseInfrastructure<> {
+    Infrastructure() : BaseInfrastructure<>("test_aux_graphs.yml") {};
 };
-struct Edge {};
 
 /// The test graph types
 struct Test_Graph : Infrastructure {
 
-  using VertexTraits = Utopia::GraphEntityTraits<VertexState>;
-  using Vertex = Utopia::GraphEntity<VertexTraits>;
-
   // undirected
-  using Graph = boost::adjacency_list<
-                      boost::vecS,         // edge container
-                      boost::vecS,         // vertex container
-                      boost::undirectedS,
-                      Vertex,              // vertex struct
-                      Edge>;               // edge struct
+  using Graph = Utopia::Models::KronGen::NWType;
 
 };
 
-// zero clustering graph
+// Creation of the zero clustering graph, a bipartite k-regular graph with N vertices
 BOOST_FIXTURE_TEST_CASE(zero_c_graph, Test_Graph)
 {
     const std::vector<double> mean_degree = {2, 3, 4, 5, 6, 8, 10, 11, 20};
     for (const auto& k : mean_degree) {
         for (std::size_t N = 2*k; N < 4*k; N+=2){
-            const auto g = create_zero_c_graph<Graph>(N, k);
-            const auto c = global_clustering_coeff(g);
+            const auto G = create_zero_c_graph<Graph>(N, k);
+            const auto c = global_clustering_coeff(G);
 
-            BOOST_TEST(num_vertices(g) == N);
-            BOOST_TEST(2*num_edges(g) == k*N);
-            BOOST_TEST(c==0);
-            assert_no_parallel_self_edges(g);
+            BOOST_TEST(num_vertices(G) == N);
+            BOOST_TEST(2*num_edges(G) == k*N);
+            BOOST_TEST(c == 0);
+            assert_no_parallel_self_edges(G);
         }
     }
 }
 
-// Chain graph
+// Creation of a chain graph of length N
 BOOST_FIXTURE_TEST_CASE(chain_graph, Test_Graph)
 {
     const std::vector<std::size_t> n_vertices = {2, 3, 4, 5, 6, 8, 10, 11, 20};
@@ -82,10 +71,9 @@ BOOST_FIXTURE_TEST_CASE(chain_graph, Test_Graph)
     }
 }
 
-// Star graph
+// Creation of a star graph
 BOOST_FIXTURE_TEST_CASE(star_graph, Test_Graph)
 {
-
     const std::vector<std::size_t> n_vertices = {20, 30, 40};
     const std::vector<double> mean_degree = {2, 3, 4, 5, 6, 7, 8};
     const std::vector<std::size_t> diameters = {2, 3, 4, 5, 6, 7, 8};
@@ -102,4 +90,19 @@ BOOST_FIXTURE_TEST_CASE(star_graph, Test_Graph)
             }
         }
     }
+}
+
+// Test config extraction
+BOOST_FIXTURE_TEST_CASE(graph_extraction, Test_Graph)
+{
+  test_config_callable (
+
+    [&](auto test_cfg){
+
+      const auto G = Utopia::Models::KronGen::AuxGraphs::create_graph<Graph>(test_cfg, *rng);
+      const size_t N = get_as<size_t>("num_vertices", test_cfg);
+
+    },
+    cfg
+  );
 }

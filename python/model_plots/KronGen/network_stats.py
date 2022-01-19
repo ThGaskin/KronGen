@@ -45,32 +45,68 @@ def network_stats(dm: DataManager, *,
     for item in gridspec:
         axs.append([figure.add_subplot(gs[item])])
     hlpr.attach_figure_and_axes(fig=figure, axes=axs)
-
     # .. Plot data histogram on each axis ......................................
     for i in range(n_plots):
         hlpr.select_axis(0, i)
         hlpr.ax.set_title(titles[plots[i]])
+
+        # Generate data array
         if (plots[i] == 'num_vertices'):
-            data_to_plot = np.asarray([len(data['_vertices'].data) for _ in range(len(data['_vertices'].data))])
+            try:
+                data_to_plot = np.asarray(data[plots[i]].data)[0]
+            except:
+                data_to_plot = np.asarray([len(data['_vertices'].data) for _ in range(len(data['_vertices'].data))])
         else:
             data_to_plot = np.asarray(data[plots[i]].data)[0]
-        hist = hlpr.ax.hist(data_to_plot, **plot_kwargs)
+
+        # Plot histograms
+        if (plots[i] in ['degree', 'degree_sequence']):
+            if 'bins' in plot_kwargs.keys():
+                plot_kwargs.remove('bins')
+            if (plots[i] == 'degree_sequence'):
+                x = np.nonzero(data_to_plot)[0]
+                y = [data_to_plot[i] for i in x]
+                num_vertices = np.sum(y)
+                loc = np.sum(x*y)/num_vertices
+                std = np.sqrt(np.sum(y*(x-loc)**2)/num_vertices)
+                hlpr.ax.scatter(x, y, **plot_kwargs)
+                txt = (f"mean: {np.around(loc, 3)}"
+                      +r"$\pm$"+f"{np.around(std, 3)}"
+                      +"\n"
+                      +f"max: {x[-1]}"
+                      +"\n"
+                      +f"min: {x[0]}")
+
+                hlpr.ax.text(0.65, 0.85, txt, color="cornflowerblue", transform=hlpr.ax.transAxes, backgroundcolor=(1, 1, 1, 0.8))
+                hlpr.ax.axvline(loc, color="cornflowerblue")
+            else:
+                min = np.min(data_to_plot)
+                max = np.max(data_to_plot)
+                hist = hlpr.ax.hist(data_to_plot,
+                             bins=np.logspace(np.log10(min),np.log10(max), 100),
+                             **plot_kwargs)
+        else:
+            hist = hlpr.ax.hist(data_to_plot, **plot_kwargs)
+
+        # Print statistics
         if (plots[i] == 'diameter' or plots[i]=="distance_max"):
             loc = np.max(data_to_plot)
             txt = f"diameter: {np.around(loc, 3)}"
-            hlpr.ax.text(0.75, 0.92, txt, color="cornflowerblue", transform=hlpr.ax.transAxes, backgroundcolor=(1, 1, 1, 0.8))
+            hlpr.ax.text(0.75, 0.92, txt, color="cornflowerblue",
+                    transform=hlpr.ax.transAxes, backgroundcolor=(1, 1, 1, 0.8))
         elif (plots[i]=='core_number'):
             loc = np.mean(data_to_plot)
             txt = (f"max: {np.around(np.max(data_to_plot), 3)}"
                   +"\n"
                   +f"min: {np.around(np.min(data_to_plot), 3)}")
-            hlpr.ax.text(0.80, 0.88, txt, color="cornflowerblue", transform=hlpr.ax.transAxes, backgroundcolor=(1, 1, 1, 0.8))
+            hlpr.ax.text(0.80, 0.88, txt, color="cornflowerblue",
+                    transform=hlpr.ax.transAxes, backgroundcolor=(1, 1, 1, 0.8))
         elif (plots[i] == 'num_vertices'):
             loc = np.mean(data_to_plot)
             txt = (f"{loc} vertices")
-            hlpr.ax.text(0.75, 0.92
-            , txt, color="cornflowerblue", transform=hlpr.ax.transAxes, backgroundcolor=(1, 1, 1, 0.8))
-        else:
+            hlpr.ax.text(0.75, 0.92, txt, color="cornflowerblue",
+                    transform=hlpr.ax.transAxes, backgroundcolor=(1, 1, 1, 0.8))
+        elif (plots[i] != 'degree_sequence'):
             loc = np.mean(data_to_plot)
             txt = (f"mean: {np.around(loc, 3)}"
                   +r"$\pm$"+f"{np.around(np.std(data_to_plot), 3)}"
@@ -81,7 +117,8 @@ def network_stats(dm: DataManager, *,
 
             hlpr.ax.text(0.65, 0.85, txt, color="cornflowerblue", transform=hlpr.ax.transAxes, backgroundcolor=(1, 1, 1, 0.8))
             hlpr.ax.axvline(loc, color="cornflowerblue")
-        if (plots[i] == 'degree'):
+
+        # Set log scales
+        if (plots[i] in ['degree', 'degree_sequence']):
             hlpr.ax.set_xscale('log')
             hlpr.ax.set_yscale('log')
-        #hlpr.ax.set_yscale('log')

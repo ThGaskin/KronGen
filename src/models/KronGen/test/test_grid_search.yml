@@ -1,0 +1,77 @@
+---
+case1:
+  params:
+    create_graph:
+      model: Kronecker
+      build_graph: false
+      KronGen:
+        targets:
+          entry: 0
+        max_dimension: 1
+        min_dimension: 1
+        tolerance: 0
+    NetworkAnalyser:
+      graph_analysis:
+        enabled: false
+  throws: std::invalid_argument
+  match: You must provide the target number of vertices!
+
+case2:
+  params:
+    create_graph:
+      model: Kronecker
+      build_graph: false
+      KronGen:
+        targets:
+          num_vertices: 50
+        max_dimension: 1
+        min_dimension: 1
+        tolerance: 0
+    NetworkAnalyser:
+      graph_analysis:
+        enabled: false
+  assert:
+    enabled: false
+
+case3:
+  params:
+    create_graph:
+      model: Kronecker
+      build_graph: false
+      KronGen:
+        targets:
+          num_vertices: 51
+          mean_degree: 17
+        max_dimension: 1
+        min_dimension: 1
+        tolerance: 0
+    NetworkAnalyser:
+      graph_analysis:
+        enabled: false
+  assert:
+    enabled: true
+    num_vertices: 51
+    mean_degree: 17
+    num_factors: 1
+
+case4:
+  params:
+    create_graph:
+      model: Kronecker
+      build_graph: false
+      KronGen:
+        targets:
+          num_vertices: 51
+          mean_degree: 2
+          degree_sequence: scale-free
+        max_dimension: 1
+        min_dimension: 1
+        tolerance: 0
+    NetworkAnalyser:
+      graph_analysis:
+        enabled: false
+  assert:
+    enabled: true
+    num_vertices: 51
+    mean_degree: 17
+    num_factors: 1

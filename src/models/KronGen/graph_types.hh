@@ -10,7 +10,7 @@ enum GraphType {
     ErdosRenyi,
     KlemmEguiluz,
     Regular,
-    ScaleFree,
+    BarabasiAlbert,
     SmallWorld
 };
 
@@ -21,14 +21,14 @@ std::string Graph_Type[] = {
     "Erdos-Renyi",
     "Klemm-Eguiluz",
     "Regular",
-    "Scale-free",
+    "Barabasi-Albert",
     "Small-world"
 };
 
 // Convert string to GraphType
 GraphType to_graphtype(std::string s) {
-    if (s == "BarabasiAlbert" or s == "scale-free"){
-        return ScaleFree;
+    if (s == "BarabasiAlbert"){
+        return BarabasiAlbert;
     }
     else if (s == "chain") {
         return Chain;

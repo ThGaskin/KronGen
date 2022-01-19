@@ -73,10 +73,11 @@ class NetworkAnalyser : public Model<NetworkAnalyser<GraphType>, ModelTypes>
     // Which features to write
     const std::pair<std::string, bool> _betweenness;
     const std::pair<std::string, bool> _closeness;
-    const std::pair<std::string, bool> _clustering_coeff;
+    const std::pair<std::string, bool> _clustering_local;
     const std::pair<std::string, bool> _clustering_global;
     const std::pair<std::string, bool> _core_number;
     const std::pair<std::string, bool> _degree;
+    const std::pair<std::string, bool> _degree_seq;
     const std::pair<std::string, bool> _diameter;
     const std::pair<std::string, bool> _distance_avg;
     const std::pair<std::string, bool> _distance_harmonic;
@@ -93,10 +94,11 @@ class NetworkAnalyser : public Model<NetworkAnalyser<GraphType>, ModelTypes>
     // .. Datasets ............................................................
     const std::shared_ptr<DataSet> _dset_betweenness;
     const std::shared_ptr<DataSet> _dset_closeness;
-    const std::shared_ptr<DataSet> _dset_clustering_coeff;
+    const std::shared_ptr<DataSet> _dset_clustering_local;
     const std::shared_ptr<DataSet> _dset_clustering_global;
     const std::shared_ptr<DataSet> _dset_core_number;
     const std::shared_ptr<DataSet> _dset_degree;
+    std::shared_ptr<DataSet> _dset_degree_sequence;
     const std::shared_ptr<DataSet> _dset_diameter;
     const std::shared_ptr<DataSet> _dset_distance_avg;
     const std::shared_ptr<DataSet> _dset_distance_harmonic;
@@ -107,6 +109,7 @@ class NetworkAnalyser : public Model<NetworkAnalyser<GraphType>, ModelTypes>
     const std::shared_ptr<DataSet> _dset_n_Paretos;
     const std::shared_ptr<DataSet> _dset_num_vertices;
     const std::shared_ptr<DataSet> _dset_reciprocity;
+
 
   public:
     // -- Model Setup ---------------------------------------------------------
@@ -119,6 +122,7 @@ class NetworkAnalyser : public Model<NetworkAnalyser<GraphType>, ModelTypes>
         const DataIO::Config& custom_cfg = {}
     )
     :
+
         // Initialize first via base model
         Base(name, parent_model, custom_cfg),
 
@@ -130,13 +134,14 @@ class NetworkAnalyser : public Model<NetworkAnalyser<GraphType>, ModelTypes>
                                                 this->_cfg["graph_analysis"])),
         _closeness("closeness", get_as<bool>("centralities",
                                                 this->_cfg["graph_analysis"])),
-        _clustering_coeff("clustering_coeff", get_as<bool>("clustering_coeff",
+        _clustering_local("clustering_local", get_as<bool>("clustering_local",
                                                 this->_cfg["graph_analysis"])),
-        _clustering_global("clustering_global", get_as<bool>("clustering_global",
+        _clustering_global("clustering_global", get_as<bool>("clustering",
                                                 this->_cfg["graph_analysis"])),
         _core_number("core_number", get_as<bool>("core_number",
                                                 this->_cfg["graph_analysis"])),
         _degree("degree", get_as<bool>("degree", this->_cfg["graph_analysis"])),
+        _degree_seq("degree_sequence", get_as<bool>("degree_sequence", this->_cfg["graph_analysis"])),
         _diameter("diameter", get_as<bool>("diameter", this->_cfg["graph_analysis"])),
         _distance_avg("distance_avg", get_as<bool>("distances",
                                                 this->_cfg["graph_analysis"])),
@@ -156,10 +161,11 @@ class NetworkAnalyser : public Model<NetworkAnalyser<GraphType>, ModelTypes>
         // Datasets
         _dset_betweenness(this->create_dataset(_betweenness)),
         _dset_closeness(this->create_dataset(_closeness)),
-        _dset_clustering_coeff(this->create_dataset(_clustering_coeff)),
+        _dset_clustering_local(this->create_dataset(_clustering_local)),
         _dset_clustering_global(this->create_dataset(_clustering_global)),
         _dset_core_number(this->create_dataset(_core_number)),
         _dset_degree(this->create_dataset(_degree)),
+        _dset_degree_sequence(this->create_dataset(_degree_seq)),
         _dset_diameter(this->create_dataset(_diameter)),
         _dset_distance_avg(this->create_dataset(_distance_avg)),
         _dset_distance_harmonic(this->create_dataset(_distance_harmonic)),
@@ -201,8 +207,10 @@ class NetworkAnalyser : public Model<NetworkAnalyser<GraphType>, ModelTypes>
               dset->add_attribute("dim_name__0", "time");
           }
           else {
+              size_t n_v = std::max(boost::num_vertices(_g),
+                                   _g[0].state.num_vertices);
               dset = this->create_dset(
-                  selection.first, _dgrp_g, {boost::num_vertices(_g)}
+                  selection.first, _dgrp_g, {n_v}
               );
               dset->add_attribute("dim_name__0", "time");
               dset->add_attribute("dim_name__1", "vertex_idx");
@@ -269,8 +277,8 @@ class NetworkAnalyser : public Model<NetworkAnalyser<GraphType>, ModelTypes>
               _g[v].state.closeness = closeness[v];
             }
 
-            if (_clustering_coeff.second) {
-              _g[v].state.clustering_coeff = clustering_coefficient(_g, v);
+            if (_clustering_local.second) {
+              _g[v].state.clustering_local = clustering_coefficient(_g, v);
             }
 
             if (_degree.second) {
@@ -292,7 +300,7 @@ class NetworkAnalyser : public Model<NetworkAnalyser<GraphType>, ModelTypes>
         if (_clustering_global.second) {
             // if graph is Kronecker graph, clustering coefficient will have
             // been calculated during the creation process
-            if (_g[0].state.clustering_global != -1) {
+            if (_g[0].state.clustering_global) {
                 _c_global = _g[0].state.clustering_global;
             }
             else {
@@ -304,7 +312,7 @@ class NetworkAnalyser : public Model<NetworkAnalyser<GraphType>, ModelTypes>
         if (_diameter.second) {
             // if graph is Kronecker graph, diameter will have been
             // calculated during the creation process
-            if (_g[0].state.diameter != -1) {
+            if (_g[0].state.diameter) {
                 _diam = _g[0].state.diameter;
             }
             else {
@@ -339,9 +347,9 @@ class NetworkAnalyser : public Model<NetworkAnalyser<GraphType>, ModelTypes>
               });
           }
 
-          if (_clustering_coeff.second){
-              _dset_clustering_coeff->write(v, v_end, [this](const auto v) {
-                  return this->_g[v].state.clustering_coeff;
+          if (_clustering_local.second){
+              _dset_clustering_local->write(v, v_end, [this](const auto v) {
+                  return this->_g[v].state.clustering_local;
               });
           }
 
@@ -356,9 +364,9 @@ class NetworkAnalyser : public Model<NetworkAnalyser<GraphType>, ModelTypes>
           }
 
           if (_degree.second){
-              if (num_vertices == 2 and _g[0].state.num_vertices != -1) {
+              if (num_vertices == 2 and _g[0].state.num_vertices) {
                   _dset_degree->write(v, v_end, [this](const auto v) {
-                      return this->_g[0].state.mean_deg;
+                      return this->_g[0].state.mean_degree;
                       UNUSED(v);
                   });
               }
@@ -368,8 +376,48 @@ class NetworkAnalyser : public Model<NetworkAnalyser<GraphType>, ModelTypes>
                   });
               }
           }
+          if (_degree_seq.second){
 
-          if (num_vertices == 2 and _g[0].state.num_vertices != -1) {
+              std::vector<std::pair<size_t, size_t>> deg_seq;
+              if (not _g[0].state.degree_sequence.empty()){
+                  deg_seq = _g[0].state.degree_sequence;
+
+              }
+              else {
+                  deg_seq = degree_sequence(_g);
+              }
+              size_t i = 0;
+              if (_g[0].state.num_vertices < num_vertices) {
+                  _dset_degree_sequence->write(v, v_end, [deg_seq, &i](const auto v) {
+                      if (deg_seq[i].first == v){
+                          auto res = deg_seq[i].second;
+                          ++i;
+                          return res;
+                      }
+                      else{
+                        return size_t(0);
+                      }
+                  });
+              }
+              else {
+                std::vector<int> vertices(static_cast<size_t>(_g[0].state.num_vertices));
+                std::iota (std::begin(vertices), std::end(vertices), 0);
+                auto n = std::begin(vertices);
+                auto n_end = std::end(vertices);
+                _dset_degree_sequence->write(n, n_end, [deg_seq, &i](const auto n) {
+                    if (deg_seq[i].first == n){
+                        auto res = deg_seq[i].second;
+                        ++i;
+                        return res;
+                    }
+                    else{
+                      return size_t(0);
+                    }
+                });
+              }
+          }
+
+          if (num_vertices == 2 and _g[0].state.num_vertices) {
               _dset_num_vertices->write(_g[0].state.num_vertices);
           }
           else {

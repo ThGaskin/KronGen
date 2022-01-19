@@ -1,0 +1,52 @@
+---
+zeroc1:
+  params:
+    model: zero_c
+    num_vertices: 20
+    mean_degree: 4
+
+zeroc2:
+  params:
+    model: zero_c
+    num_vertices: 12
+    mean_degree: 10
+  throws: std::invalid_argument
+  match: "N must be greater or equal to 2k!"
+
+zeroc3:
+  params:
+    model: zero_c
+    num_vertices: 10
+    mean_degree: 1
+  throws: std::invalid_argument
+  match: "k must be greater or equal to 2!"
+
+zeroc4:
+  params:
+    model: zero_c
+    num_vertices: 11
+    mean_degree: 4
+  throws: std::invalid_argument
+  match: "N must be even!"
+
+chain1:
+  params:
+    model: chain
+    num_vertices: 11
+
+star1:
+  params:
+    model: star
+    num_vertices: 20
+    mean_degree: 2
+    star:
+      diameter: 3
+star2:
+  params:
+    num_vertices: 10
+    mean_degree: 4
+    model: star
+    star:
+      diameter: 6
+  throws: std::invalid_argument
+  match: "Star graph cannot be created!"
