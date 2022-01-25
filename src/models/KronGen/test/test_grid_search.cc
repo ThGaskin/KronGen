@@ -84,14 +84,11 @@ BOOST_AUTO_TEST_CASE (test_get_k_factors)
 BOOST_AUTO_TEST_CASE (test_get_d_factors)
 {
       const std::vector<size_t> N = {2, 17, 52, 169, 500, 5000};
-      const std::vector<size_t> min_dim = {1, 1, 1, 1, 2, 3};
-      const std::vector<double> max_dim = {1, 2, 3, 4, 2, 5};
       for (const auto& n : N){
-            for (size_t d = 0; d < min_dim.size(); ++d){
-                auto fac = get_d_factors(n, get_factors, min_dim[d], max_dim[d]);
+            for (size_t d = 1; d < 10; ++d){
+                auto fac = get_d_factors(n, get_factors, d);
                 for (const auto& f : fac) {
-                    BOOST_TEST(f.size() >= min_dim[d]);
-                    BOOST_TEST(f.size() <= max_dim[d]);
+                    BOOST_TEST(f.size() == d);
                     size_t res = 1;
                     for (const auto& ff: f) {
                         res *= ff;
@@ -105,11 +102,10 @@ BOOST_AUTO_TEST_CASE (test_get_d_factors)
       }
 
       for (const auto& k : N){
-            for (size_t d = 0; d < min_dim.size(); ++d){
-                auto fac = get_d_factors(k, get_k_factors, min_dim[d], max_dim[d]);
+            for (size_t d = 0; d < 10; ++d){
+                auto fac = get_d_factors(k, get_k_factors, 10);
                 for (const auto& f : fac) {
-                    BOOST_TEST(f.size() >= min_dim[d]);
-                    BOOST_TEST(f.size() <= max_dim[d]);
+                    BOOST_TEST(f.size() == d);
                     size_t res = 1;
                     for (const auto& ff: f) {
                         res *= (ff+1);
@@ -121,8 +117,14 @@ BOOST_AUTO_TEST_CASE (test_get_d_factors)
       }
 
       // Test an explicit case
-      const auto test = get_d_factors (52, get_factors, 1, 3);
-      factors res = {{52}, {2, 26}, {4, 13}, {2, 2, 13}};
+      auto test = get_d_factors (52, get_factors, 1);
+      factors res = {{52}};
+      BOOST_TEST(test == res);
+      test = get_d_factors (52, get_factors, 2);
+      res = {{2, 26}, {4, 13}};
+      BOOST_TEST(test == res);
+      test = get_d_factors (52, get_factors, 3);
+      res = {{2, 2, 13}};
       BOOST_TEST(test == res);
 }
 
@@ -132,8 +134,8 @@ BOOST_AUTO_TEST_CASE (test_N_grid)
 {
     const std::vector<size_t> targets = {2, 17, 52, 169, 500, 5000};
     const std::vector<double> errors = {0., 0.1, 0.2};
-    const std::vector<size_t> min_dim = {1, 1, 1, 1, 2, 3};
-    const std::vector<double> max_dim = {1, 2, 3, 4, 2, 5};
+    const std::vector<size_t> min_dim = {1, 1, 1, 1, 2, 3, 6};
+    const std::vector<double> max_dim = {1, 2, 3, 4, 2, 5, 6};
     for (const auto& N_target : targets){
         for (const auto& err : errors) {
             for (size_t d = 0; d < min_dim.size(); ++d){

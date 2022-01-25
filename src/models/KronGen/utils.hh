@@ -473,6 +473,18 @@ std::map<std::string, double> extract_targets(
     return targets;
 }
 
+// Returns 'true' if a certain parameter is a target/calculate parameter
+bool is_param(map_type& map, std::string param, std::string target = "target") {
+    bool rtype = false;
+    if (map.find(param) != map.end()){
+        if (map[param][target].first) {
+            rtype = true;
+        }
+    }
+    return rtype;
+}
+
+
 // .............................................................................
 // ... Grid search utility functions ...........................................
 // .............................................................................
@@ -504,19 +516,48 @@ factors get_factors (const size_t N, const bool include_trivial=false) {
 
 // Returns pairs of positive integers such that (i+1)(j+1)=(k+1),
 // including (0, k) if specified
-factors get_k_factors (size_t k, const bool include_trivial=false) {
+factors get_k_factors (const size_t k, const bool include_trivial=false) {
 
     factors res {{0, k}};
     if (not include_trivial){
         res.pop_back();
     }
-    const size_t limit = int(sqrt(k+1));
-    res.reserve(limit);
+    res.reserve(k);
 
-    for (size_t i = 1; i < limit; ++i) {
+    for (size_t i = 1; i <= k; ++i) {
         if (not ((k+1)%(i+1))) {
             const factor t = {i, static_cast<size_t>((k+1)/(i+1)-1)};
             res.emplace_back(t);
+        }
+    }
+
+    return res;
+}
+
+// Factorizes a list of d-tuple factors into a list of d+1-tuple factors
+factors factorize(const factors& target, factors (*factor_func)(size_t, bool)) {
+
+    factors res = {};
+
+    for (const auto& fac: target) {
+        for (size_t i=0; i < fac.size(); ++i) {
+            const auto x = factor_func(fac[i], false);
+            for (const auto& x_fac: x) {
+                factor q = factor(fac.begin(), fac.begin()+i);
+                q.insert(q.end(), x_fac.begin(), x_fac.end());
+                q.insert(q.end(), fac.begin()+(i+1), fac.end());
+                sort(q.begin(), q.end());
+                bool already_in = false;
+                for (const auto& c : res) {
+                    if (c == q) {
+                        already_in = true;
+                        break;
+                    }
+                }
+                if (not already_in) {
+                    res.emplace_back(q);
+                }
+            }
         }
     }
 
@@ -527,72 +568,29 @@ factors get_k_factors (size_t k, const bool include_trivial=false) {
 /*
  * \param val                   The natural number to factorise
  * \param factor_func           The factorisation function
- * \param d_min                 The minimum factorisation
- * \param d_max                 The maximum factorisation
+ * \param d                     The factor size
  *
  * \returns res                 A list of tuples
  * \throws invalid_argument     If d_min > d_max
  */
 factors get_d_factors (const size_t val,
                        factors (*factor_func)(size_t, bool),
-                       const size_t d_min,
-                       const size_t d_max)
+                       const size_t d)
 {
-    if (d_max < d_min) {
-        throw std::invalid_argument("d_max must be greater or equal to d_min!");
+    if (d < 1) {
+        throw std::invalid_argument("d must be greater than 1!");
     }
-
-    if (d_max < 2) {
+    if (d == 1) {
         return {{val}};
     }
 
-    factors res;
-    if (d_min == 1) {
-        res = factors{factor{val}};
-    }
-    else {
-        res = factor_func(val, false);
-    }
-
-    auto current_to_do = res;
-    size_t starting_dim = d_min == 1 ? 1 : 2;
-    for (size_t p = starting_dim ; p < d_max; ++p){
-
-        factors current_done = {};
-
-        for (const auto& fac: current_to_do) {
-            for (size_t i=0; i < fac.size(); ++i) {
-                const auto x = factor_func(fac[i], false);
-                for (const auto& x_fac: x) {
-                    factor q = factor(fac.begin(), fac.begin()+i);
-                    q.insert(q.end(), x_fac.begin(), x_fac.end());
-                    q.insert(q.end(), fac.begin()+(i+1), fac.end());
-                    sort(q.begin(), q.end());
-                    bool already_in = false;
-                    for (const auto& c : current_done) {
-                        if (c == q) {
-                            already_in = true;
-                            break;
-                        }
-                    }
-                    if (not already_in) {
-                        current_done.emplace_back(q);
-                    }
-                }
-            }
-        }
-        if ((p >= d_min)) {
-            if (current_done.size() != 0) {
-                res.insert(res.end(), current_done.begin(), current_done.end());
-            }
-        }
-        else {
-            res = current_done;
-        }
-        current_to_do = current_done;
+    factors res = factor_func(val, false);
+    for (size_t p = 2; p < d; ++p) {
+        res = factorize(res, factor_func);
     }
 
     return res;
+
 }
 
 // Get a grid of d-factors (including reducible factors) for a given error range
@@ -612,23 +610,41 @@ factors get_grid (const size_t grid_center,
     factors res = {};
     const auto delta = int(grid_center*err);
     for (size_t i = grid_center - delta; i <= grid_center + delta; ++i) {
-        const auto t = get_d_factors(i, factor_func, d_min, d_max);
-        if (t.size() == 0){
-          continue;
+        for (size_t p = d_min; p < d_max; ++p) {
+            const auto t = get_d_factors(i, factor_func, p);
+            if (t.size() == 0){
+              continue;
+            }
+            res.insert(res.end(), t.begin(), t.end());
         }
-        res.insert(res.end(), t.begin(), t.end());
     }
 
     return res;
 }
 
-// Return the N-grid (using the standard factorisation)
+// Return the N-grid (using the standard factorisation)(single dimension)
+factors get_N_grid (const size_t grid_center,
+                    const double err,
+                    const size_t d)
+{
+    return get_grid(grid_center, get_factors, err, d, d);
+}
+
+// Return the N-grid (using the standard factorisation)(dimension span)
 factors get_N_grid (const size_t grid_center,
                     const double err,
                     const size_t d_min,
                     const size_t d_max)
 {
     return get_grid(grid_center, get_factors, err, d_min, d_max);
+}
+
+// Return the k-grid
+factors get_k_grid (const size_t grid_center,
+                    const double err,
+                    const size_t d)
+{
+    return get_grid(grid_center, get_k_factors, err, d, d);
 }
 
 // Return the k-grid
