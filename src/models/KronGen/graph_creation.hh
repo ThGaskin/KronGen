@@ -16,7 +16,6 @@
 
 #include "aux_graphs.hh"
 #include "graph_properties.hh"
-#include "graph_types.hh"
 #include "grid_search.hh"
 #include "objective_functions.hh"
 #include "../NetworkAnalyser/graph_metrics.hh"
@@ -25,9 +24,7 @@
 namespace Utopia::Models::KronGen::GraphCreation {
 
 using namespace Utopia::Models::KronGen;
-
-using factor = typename std::vector<std::size_t>;
-using factors = typename std::vector<std::vector<std::size_t>>;
+using namespace Utopia::Models::KronGen::TypeDefinitions;
 
 /// Returns the Kronecker product of a list of graphs and calculates its topological
 /// properties. This method does not require generating the full graph
@@ -65,7 +62,7 @@ Graph create_Kronecker_graph(const Config& cfg,
     // Generate graph as a tensor power of a single graph
     if (single_factor.first) {
         const auto& model_map = get_as<Config>("Graph1", factor_list);
-        for (int i = 0; i < single_factor.second; ++i) {
+        for (size_t i = 0; i < single_factor.second; ++i) {
 
             log->debug("Generating {} graph (factor {}/{}) ...",
                        get_as<std::string>("model", model_map), i+1, num_factors);
@@ -109,9 +106,11 @@ Graph create_Kronecker_graph(const Config& cfg,
         }
     }
 
-    // Write data, remove self edges, and return the graph
+    log->debug("Writing properties ...");
     Utils::write_properties(K, analysis_params);
     Utils::remove_self_edges(K);
+
+    log->info("Graph creation complete.");
 
     return K;
 }
@@ -140,12 +139,13 @@ Graph create_KronGen_graph(const Config& cfg,
                            const Logger& log,
                            const Config& analysis_cfg = YAML::Node())
 {
-    std::uniform_real_distribution<double> prob_distr;
 
-    // An objective function takes a target value and a list of graph types,
+    // An objective function takes a target value and a list of graphs,
     // and returns an error value
     using objective_function
-    = typename std::function<double(double, factor, factor, std::vector<GraphTypes::GraphType>, RNGType&)>;
+    = typename std::function<double(double, std::vector<GraphDesc>, RNGType&)>;
+
+    std::uniform_real_distribution<double> prob_distr;
 
     // Get target parameters
     auto targets = Utils::get_analysis_targets(analysis_cfg, get_as<Config>("targets", cfg["KronGen"]));
@@ -160,6 +160,7 @@ Graph create_KronGen_graph(const Config& cfg,
                        * (std::any_cast<double>(targets["num_vertices"]["target"].second)-1))))}}
         });
     }
+
     // Create map of objective functions and weights, and output info message.
     // All weights are 1.0 for now.
     std::map<std::string, std::pair<double, objective_function>> objective_funcs;
@@ -210,12 +211,12 @@ Graph create_KronGen_graph(const Config& cfg,
     const double tolerance = get_as<double>("tolerance", cfg["KronGen"]);
 
     // Perform grid search
-    const auto Paretos = GridSearch::grid_search(d_min, d_max, grid_center,
-                                             tolerance, targets, objective_funcs,
-                                             log, rng);
+    const auto Paretos = GridSearch::get_Paretos<Graph>(
+        d_min, d_max, grid_center, tolerance, targets, objective_funcs, log, rng
+    );
 
     // Collect the number of Pareto points found
-    const size_t n_Paretos = Paretos.size();
+    const auto n_Paretos = Paretos.size();
     targets["num_Paretos"]["calculate"].second = n_Paretos;
     if (n_Paretos == 0) {
         log->warn("No Pareto points found. It may be that your configuration "
@@ -224,46 +225,39 @@ Graph create_KronGen_graph(const Config& cfg,
          );
          return Utils::build_initiator_graph<Graph>(false);
     }
+
     log->info("Grid search complete. Found {} Pareto point(s).", n_Paretos);
 
     // If multiple Pareto points found, randomly pick one
     const size_t rdm_pt = std::round(prob_distr(rng) * (n_Paretos-1));
-    const auto N_factors = std::get<0>(Paretos[rdm_pt]);
-    const auto k_factors = std::get<1>(Paretos[rdm_pt]);
-    const auto types = std::get<2>(Paretos[rdm_pt]);
+    const auto Pareto_point = Paretos[rdm_pt];
 
     // Keep track of number of non-trivial factors
-    auto n_factors = N_factors.size();
+    auto n_factors = Pareto_point.size();
     targets["num_factors"]["calculate"].second = n_factors;
     log->info("Number of Kronecker factors: {}.", n_factors);
 
-    // ... Create initiator graph
+    // Create initiator graph
     Graph K = Utils::build_initiator_graph<Graph>(build_graph);
 
     // Assemble Kronecker graph
-    for (size_t i = 0; i < N_factors.size(); ++i) {
-
-        // Get graph generation parameters
-        const auto n_curr = N_factors[i];
-        const auto k_curr = k_factors[i];
+    for (const auto& graph : Pareto_point) {
 
         // Ignore trivial factors
-        if (k_curr == 0 or n_curr == 1) {
+        if (graph.mean_degree == 0 or graph.num_vertices == 1) {
             targets["num_factors"]["calculate"].second = --n_factors;
             continue;
         }
 
         // Keep track of largest factor size
-        if (n_curr > std::any_cast<size_t>(targets["largest_comp"]["calculate"].second)) {
-            targets["largest_comp"]["calculate"].second = n_curr;
+        if (graph.num_vertices > std::any_cast<size_t>(targets["largest_comp"]["calculate"].second)) {
+            targets["largest_comp"]["calculate"].second = graph.num_vertices;
         }
 
-        // Create graphs
-        double c_t = std::any_cast<double>(targets["clustering"]["target"].second);
-        Graph H = AuxGraphs::create_graph<Graph>(n_curr, k_curr, types[i], rng, c_t);
-
+        // Create graph
+        Graph H = AuxGraphs::create_graph<Graph>(graph, rng);
         log->debug("Current factor: {} graph with {} vertices, mean degree k = {}",
-                   GraphProperties::Graph_Type[types[i]], n_curr, k_curr);
+                   GraphProperties::Graph_Type[graph.type], graph.num_vertices, graph.mean_degree);
 
         // Calculate properties of Kronecker product
         Utils::calculate_properties(H, targets, log);
@@ -276,7 +270,6 @@ Graph create_KronGen_graph(const Config& cfg,
         }
     }
 
-    // Write data, remove self edges, and return the graph
     log->debug("Writing properties ...");
     Utils::write_properties(K, targets);
     Utils::remove_self_edges(K);

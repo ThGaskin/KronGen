@@ -3,19 +3,17 @@
 #define UNUSED(expr) do { (void)(expr); } while (0)
 
 #include "graph_properties.hh"
-#include "graph_types.hh"
+#include "type_definitions.hh"
 #include "utils.hh"
-#include "graph_definition.hh"
 
 namespace Utopia::Models::KronGen::ObjectiveFuncs {
 
 using namespace Utopia::Models::KronGen;
-using namespace Utopia::Models::KronGen::GraphTypes;
+using namespace Utopia::Models::KronGen::TypeDefinitions;
 
-using factor = typename std::vector<std::size_t>;
 
 // Error norm
-// To do: initialise this from the front end
+// TO DO: initialise this from the front end
 double err_func(double x, double y) {
     return std::abs(1-x/y); // L1 norm
     //return pow((1-x/y), 2); //L2 norm
@@ -24,34 +22,28 @@ double err_func(double x, double y) {
 /// Clustering objective function for various graphs types
 /**
   * \param c_t     The target clustering coefficient
-  * \param N       Vector of graph vertex counts
-  * \param k       Vector of graph mean degrees
-  * \param t       Vector of graph types
+  * \param graphs  A vector of graph descriptors
+  * \param rng     The random number generator
   *
   * \return err    The error in the specified norm
   *
-  * @throws        Invalid argument if number of factors do not match
   */
-// Missing: clustering for scale-free graphs etc.
-// template<typename Graph, typename RNGType>
 double clustering_obj_func (const double& c_t,
-                            const factor& N,
-                            const factor& k,
-                            const std::vector<GraphType>& t,
+                            const std::vector<GraphDesc>& graphs,
                             std::mt19937& rng)
 {
-    if ((N.size() != k.size()) or (k.size() != t.size())) {
-        throw std::invalid_argument("Number of factors do not match!");
-    }
-
     // Calculate graph degree variances and clustering coefficients
     double c_current=0., c_previous, k_current, k_previous, v_current, v_previous;
-
-    for (size_t i = 0; i < N.size(); ++i){
-        k_current = k[i];
-        c_current = GraphProperties::clustering_estimation<GraphDefinition::NWType>(N[i], k[i], t[i], c_t, rng);
-        v_current = GraphProperties::degree_variance(N[i], k[i], t[i]);
-        if (i > 0) {
+    size_t i = 0;
+    for (const auto& graph : graphs){
+        k_current = graph.mean_degree;
+        c_current = GraphProperties::clustering_estimation<NWType>(
+            graph.num_vertices, graph.mean_degree, graph.type, c_t, rng
+        );
+        v_current = GraphProperties::degree_variance(
+            graph.num_vertices, graph.mean_degree, graph.type
+        );
+        if (i != 0) {
             c_current = Utils::Kronecker_clustering(c_current, c_previous,
                                                     k_current, k_previous,
                                                     v_current, v_previous);
@@ -59,9 +51,13 @@ double clustering_obj_func (const double& c_t,
                                                          v_current, v_previous);
             k_current = Utils::Kronecker_mean_degree(k_current, k_previous);
         }
+        else {
+          i = 1;
+        }
         c_previous = c_current;
         k_previous = k_current;
         v_previous = v_current;
+
     }
 
     return err_func(c_current, c_t);
@@ -70,30 +66,20 @@ double clustering_obj_func (const double& c_t,
 /// Diameter objective function for various graphs types
 /**
   * \param d_t     The target diameter
-  * \param N       Vector of graph vertex counts
-  * \param k       Vector of graph mean degrees
-  * \param t       Vector of graph types
+  * \param graphs  A vector of graph descriptors
   *
   * \return err    The error in the specified norm
   *
-  * @throws        Invalid argument if number of factors do not match
   */
-// Missing: diameter for scale-free graphs etc.
 double diameter_obj_func (const double& d_t,
-                          const factor& N,
-                          const factor& k,
-                          const std::vector<GraphType>& t,
+                          const std::vector<GraphDesc>& graphs,
                           std::mt19937& rng)
 {
-
     UNUSED(rng);
-    if ((N.size() != k.size()) or (k.size() != t.size())) {
-        throw std::invalid_argument("Number of factors do not match!");
-    }
-
     double d = 0;
-    for (size_t i = 0; i < N.size(); ++i){
-        const size_t d_est = GraphProperties::diameter_estimation(N[i], k[i], t[i]);
+    for (const auto& graph : graphs){
+        const size_t d_est = GraphProperties::diameter_estimation(
+            graph.num_vertices, graph.mean_degree, graph.type);
         if (d_est > d) {
             d = d_est;
         }
@@ -105,25 +91,19 @@ double diameter_obj_func (const double& d_t,
 
 /// Number of vertices objective function, independent of graph type
 /**
-  * \param d_t     The target vertex count
-  * \param N       Vector of graph vertex counts
-  * \param k       Vector of graph mean degrees
-  * \param t       Vector of graph types
+  * \param N_t     The target vertex count
+  * \param graphs  A vector of graph descriptors
   *
   * \return err    The error in the specified norm
   */
 double N_obj_func (const double& N_t,
-                  const factor& N,
-                  const factor& k,
-                  const std::vector<GraphType>& t,
-                  std::mt19937& rng)
+                   const std::vector<GraphDesc>& graphs,
+                   std::mt19937& rng)
 {
-    UNUSED(k);
-    UNUSED(t);
     UNUSED(rng);
     double N_res = 1;
-    for (const auto& n : N) {
-        N_res *= n;
+    for (const auto& graph : graphs) {
+        N_res *= graph.num_vertices;
     }
 
     return err_func(N_res, N_t);
@@ -131,23 +111,20 @@ double N_obj_func (const double& N_t,
 
 /// Mean degree objective function for various graph types
 /*
- * \param d_t     The target mean degree
- * \param N       Vector of graph vertex counts
- * \param k       Vector of graph mean degrees
- * \param t       Vector of graph types
+ * \param k_t     The target mean degree
+ * \param graphs  A vector of graph descriptors
  *
  * \return err    The error in the specified norm
  */
 double k_obj_func (const double& k_t,
-                   const factor& N,
-                   const factor& k,
-                   const std::vector<GraphType>& t,
+                   const std::vector<GraphDesc>& graphs,
                    std::mt19937& rng)
 {
     UNUSED(rng);
     double k_res = 1.0;
-    for (size_t i = 0; i < k.size(); ++i) {
-        k_res *= (GraphProperties::mean_degree(N[i], k[i], t[i])+1);
+    for (const auto& graph : graphs) {
+        k_res *= (GraphProperties::mean_degree(
+          graph.num_vertices, graph.mean_degree, graph.type)+1);
     }
 
     return err_func(k_res, k_t+1);

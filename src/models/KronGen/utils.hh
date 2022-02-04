@@ -1,25 +1,17 @@
 #ifndef UTOPIA_MODELS_KRONGEN_UTILS
 #define UTOPIA_MODELS_KRONGEN_UTILS
 
-#include <any>
-#include <map>
-#include <string>
-
 #include <boost/graph/adjacency_list.hpp>
 #include <boost/graph/adjacency_matrix.hpp>
 
 #include "utopia/core/graph/iterator.hh"
 
+#include "type_definitions.hh"
 #include "../NetworkAnalyser/graph_metrics.hh"
 
 namespace Utopia::Models::KronGen::Utils {
 
-using factor = typename std::vector<size_t>;
-using factors = typename std::vector<std::vector<size_t>>;
-using pair_pt = typename std::pair<std::pair<size_t, double>, std::pair<size_t, double>>;
-using vector_pt = typename std::vector<std::pair<size_t, size_t>>;
-using map_type = typename std::map<std::string, std::map<std::string, std::pair<bool, std::any>>>;
-using entry_type = typename std::map<std::string, std::pair<bool, std::any>>;
+using namespace Utopia::Models::KronGen::TypeDefinitions;
 
 // .............................................................................
 // ... Kronecker product utility functions .....................................
@@ -247,7 +239,12 @@ map_type get_analysis_targets(
         for (const auto& param : target_cfg){
             const string param_name = param.first.as<string>();
 
+            // Avoid typing errors in degree distribution key
             if (param_name == "degree_sequence") {
+
+                if (get_as<string>(param_name, target_cfg) == ""){
+                    continue;
+                }
                 analysis_targets[param_name]
                 = entry_type{{"calculate", make_pair<bool, vector_pt>(true, vector_pt{{0, 1}})},
                              {"target", make_pair<const bool, const string>
@@ -449,9 +446,7 @@ void write_properties(Graph& K, map_type& analysis_targets){
 
 // Extracts just the target names and numerical values from a map of analysis
 // and target properties
-std::map<std::string, double> extract_targets(
-    map_type& analysis_and_targets,
-    const bool numerical_only = true)
+std::map<std::string, double> extract_targets(map_type& analysis_and_targets)
 {
     std::map<std::string, double> targets;
     for (auto& p : analysis_and_targets) {
@@ -459,10 +454,8 @@ std::map<std::string, double> extract_targets(
         if (analysis_and_targets[param]["target"].first == false) {
             continue;
         }
-        if (numerical_only) {
-            if (param == "degree_sequence") {
-                continue;
-            }
+        if (param == "degree_sequence") {
+            continue;
         }
 
         targets[param]
@@ -475,15 +468,49 @@ std::map<std::string, double> extract_targets(
 
 // Returns 'true' if a certain parameter is a target/calculate parameter
 bool is_param(map_type& map, std::string param, std::string target = "target") {
-    bool rtype = false;
+
     if (map.find(param) != map.end()){
         if (map[param][target].first) {
-            rtype = true;
+            return true;
         }
     }
-    return rtype;
+    return false;
 }
 
+// Overload functions: return 'true' if a certain value is the target of the
+// given parameter
+bool is_target(map_type& map, std::string param, std::string val){
+    if (map.find(param) != map.end()){
+        if (map[param]["target"].first) {
+            if (std::any_cast<std::string>(map[param]["target"].second) == val) {
+                return true;
+            }
+        }
+    }
+    return false;
+}
+
+bool is_target(map_type& map, std::string param, std::size_t val){
+    if (map.find(param) != map.end()){
+        if (map[param]["target"].first) {
+            if (std::any_cast<size_t>(map[param]["target"].second) == val) {
+                return true;
+            }
+        }
+    }
+    return false;
+}
+
+bool is_target(map_type& map, std::string param, double val){
+    if (map.find(param) != map.end()){
+        if (map[param]["target"].first) {
+            if (std::any_cast<double>(map[param]["target"].second) == val) {
+                return true;
+            }
+        }
+    }
+    return false;
+}
 
 // .............................................................................
 // ... Grid search utility functions ...........................................
@@ -524,7 +551,7 @@ factors get_k_factors (const size_t k, const bool include_trivial=false) {
     }
     res.reserve(k);
 
-    for (size_t i = 1; i <= k; ++i) {
+    for (size_t i = 1; i < k; ++i) {
         if (not ((k+1)%(i+1))) {
             const factor t = {i, static_cast<size_t>((k+1)/(i+1)-1)};
             res.emplace_back(t);
@@ -610,7 +637,7 @@ factors get_grid (const size_t grid_center,
     factors res = {};
     const auto delta = int(grid_center*err);
     for (size_t i = grid_center - delta; i <= grid_center + delta; ++i) {
-        for (size_t p = d_min; p < d_max; ++p) {
+        for (size_t p = d_min; p <= d_max; ++p) {
             const auto t = get_d_factors(i, factor_func, p);
             if (t.size() == 0){
               continue;
@@ -654,6 +681,36 @@ factors get_k_grid (const size_t grid_center,
                     const size_t d_max)
 {
     return get_grid(grid_center, get_k_factors, err, d_min, d_max);
+}
+
+// Find an estimated mu value for a given clustering coefficient
+double mu_inv(const double N, const double k, const double c_t)
+{
+    double b = 1.8;
+    double m = 1.0*std::round(-0.5*sqrt(4.0*(pow(N, 2)) - 4.0*N*(k+1) + 1) + N - 0.5);
+    double c_0 = 2./3.-1/(3*m);
+    double c_1 = pow((m-1), (2./3))/(3.3)*pow(log(N), 2)/N;
+    double a = (c_0 - c_1)*exp(b);
+
+    return std::max(0., std::min(1., sqrt(-1.0/b*log((c_t-c_1)/a))-1));
+}
+
+// Get a grid in mu
+std::vector<double> get_mu_grid(const double mu,
+                                const double tolerance,
+                                const size_t grid_size)
+{
+
+    const double lower_bound = std::max(0., mu*(1-tolerance));
+    const double upper_bound = std::min(1., mu*(1+tolerance));
+    const double step_size = (upper_bound-lower_bound)/grid_size;
+    std::vector<double> grid;
+    grid.reserve(grid_size);
+    for (size_t i = 0; i < grid_size; ++i) {
+        grid.emplace_back(lower_bound + i*(step_size));
+    }
+
+    return grid;
 }
 
 } // namespace KronGen::Utils

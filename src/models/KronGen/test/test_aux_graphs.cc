@@ -101,6 +101,7 @@ BOOST_FIXTURE_TEST_CASE(graph_extraction, Test_Graph)
 
       const auto G = Utopia::Models::KronGen::AuxGraphs::create_graph<Graph>(test_cfg, *rng);
       const size_t N = get_as<size_t>("num_vertices", test_cfg);
+      BOOST_TEST(boost::num_vertices(G) == N);
 
     },
     cfg

@@ -3,12 +3,12 @@ _:
   sweep_parameter: &sweep_param
     select_and_combine:
       fields:
-        mean_degree:
+        clustering:
           path: cfg/NetworkAnalyser
   x_coord: &x_coord
-    x: mean_degree
+    x: clustering
   x_label: &x_label
-    x: $\bar{k}$
+    x: $c_T$
 
 ### ... Universe plots .........................................................
 # Graph plot
@@ -23,6 +23,13 @@ nw_stats:
   universes: all
   module: model_plots.KronGen
   plot_func: network_stats
+
+degree_distribution:
+  based_on: KronGen_default
+  creator: universe
+  universes: all
+  module: model_plots.KronGen
+  plot_func: degree_distribution
 
 ### ... 1D Multiverse plots .....................................................
 clustering:

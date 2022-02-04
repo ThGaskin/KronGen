@@ -1,15 +1,109 @@
-#ifndef UTOPIA_MODELS_KRONGEN_GRAPHDEF
-#define UTOPIA_MODELS_KRONGEN_GRAPHDEF
+#ifndef UTOPIA_MODELS_KRONGEN_TYPEDEFS
+#define UTOPIA_MODELS_KRONGEN_TYPEDEFS
 
-// third-party library includes
+#include <any>
+#include <map>
+#include <string>
+
 #include <boost/graph/adjacency_list.hpp>
 #include <boost/graph/adjacency_matrix.hpp>
 
-namespace Utopia::Models::KronGen::GraphDefinition{
+#include <utopia/core/model.hh>
+#include <utopia/core/types.hh>
+#include <utopia/core/graph/entity.hh>
 
-// Defines the graph type used in the KronGen model
+// .. Type definitions used in the model .......................................
 
-// Vertex
+namespace Utopia::Models::KronGen::TypeDefinitions{
+
+// A factor is a list of ints
+using factor = typename std::vector<size_t>;
+
+// Factors are lists of factors
+using factors = typename std::vector<factor>;
+
+// Vectors of pairs of integers
+using vector_pt = typename std::vector<std::pair<size_t, size_t>>;
+
+// Entry type of the map of analysis targets: an entry is a map consisting of
+// strings as keys ("target", "calculate", etc.) and a bool and value pair.
+// The bool indicates whether or not a parameter is a target/analysis entry,
+// and the value indicates the target value/calculated analysis value.
+// Target values are const.
+using entry_type = typename std::map<std::string, std::pair<bool, std::any>>;
+
+// A map consists of key and entry_type pairs
+using map_type = typename std::map<std::string, entry_type>;
+
+// All graph types considered in the KronGen model
+enum GraphType {
+    Chain,
+    Complete,
+    ErdosRenyi,
+    KlemmEguiluz,
+    Regular,
+    BarabasiAlbert,
+    SmallWorld
+};
+
+// Simple struct containing the information required to generate a graph
+struct GraphDesc {
+
+    size_t num_vertices;
+
+    size_t mean_degree;
+
+    GraphType type;
+
+    double mu;
+};
+
+// A Pareto point is a list of graph descriptors
+using ParetoPoint = typename std::vector<GraphDesc>;
+
+// A Pareto set if a list of Pareto points
+using ParetoSet = typename std::vector<ParetoPoint>;
+
+// Convenient printing function for graph types
+std::string Graph_Type[] = {
+    "Chain",
+    "Complete",
+    "Erdos-Renyi",
+    "Klemm-Eguiluz",
+    "Regular",
+    "Barabasi-Albert",
+    "Small-world"
+};
+
+// Converts a string to a GraphType
+GraphType to_graphtype(std::string s) {
+    if (s == "BarabasiAlbert"){
+        return BarabasiAlbert;
+    }
+    else if (s == "chain") {
+        return Chain;
+    }
+    else if (s == "complete") {
+        return Complete;
+    }
+    else if (s == "ErdosRenyi") {
+        return ErdosRenyi;
+    }
+    else if (s == "KlemmEguiluz") {
+        return KlemmEguiluz;
+    }
+    else if (s == "regular" or s == "Regular") {
+        return Regular;
+    }
+    else if (s == "WattsStrogatz"){
+        return SmallWorld;
+    }
+    else {
+        return ErdosRenyi;
+    }
+}
+
+// The graph vertex type
 struct VertexState
 {
     // Betweenness centrality
@@ -113,4 +207,4 @@ using NWType = boost::adjacency_list<EdgeContainer,
                                      >;
 }
 
-#endif // UTOPIA_MODELS_KRONGEN_GRAPHDEF
+#endif // UTOPIA_MODELS_KRONGEN_TYPEDEFS

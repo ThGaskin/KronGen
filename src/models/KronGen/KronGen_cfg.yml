@@ -17,8 +17,6 @@ create_graph:
       oriented: !is-bool false
       p_rewire: !is-probability 0.2
 
-  num_vertices: !is-positive-int 300
-  mean_degree: !is-positive 8
   model: KronGen
   build_graph: true
   <<: *defaults
@@ -26,6 +24,13 @@ create_graph:
     min_dimension: 2
     max_dimension: 6
     tolerance: 0.1
+    targets:
+      num_vertices: 100
+      mean_degree: 10
+      degree_sequence: !param
+        default: ""
+        is_any_of: ["", "scale-free", "normal"]
+        dtype: str
 
 # Graph analysis
 NetworkAnalyser:

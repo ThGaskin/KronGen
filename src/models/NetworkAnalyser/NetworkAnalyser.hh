@@ -392,7 +392,7 @@ class NetworkAnalyser : public Model<NetworkAnalyser<GraphType>, ModelTypes>
               auto n = std::begin(vertices);
               auto n_end = std::end(vertices);
               _dset_degree_sequence->write(n, n_end, [&deg_seq, &i](const auto n) {
-                  if (deg_seq[i].first == n and i < deg_seq.size()){
+                  if (deg_seq[i].first == static_cast<size_t>(n) and i < deg_seq.size()){
                       auto res = deg_seq[i].second;
                       ++i;
                       return res;

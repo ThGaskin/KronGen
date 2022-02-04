@@ -1,14 +1,15 @@
 #ifndef UTOPIA_MODELS_KRONGEN_GRAPHPROPERTIES
 #define UTOPIA_MODELS_KRONGEN_GRAPHPROPERTIES
 
-#include "graph_types.hh"
 #include "aux_graphs.hh"
+#include "type_definitions.hh"
+#include "utils.hh"
 #include "../NetworkAnalyser/graph_metrics.hh"
 
 namespace Utopia::Models::KronGen::GraphProperties {
 
 using namespace Utopia::Models::KronGen::AuxGraphs;
-using namespace Utopia::Models::KronGen::GraphTypes;
+using namespace Utopia::Models::KronGen::TypeDefinitions;
 
 // ... Estimators for clustering coefficients  .................................
 
@@ -87,8 +88,9 @@ double clustering_estimation(const double& N,
         return clustering_BA(N, k);
     }
     else if (t == GraphType::KlemmEguiluz){
-        const auto g = AuxGraphs::create_graph<Graph>(N, k, t, rng, pow(1-c_t, 3));
-        return NetworkAnalyser::global_clustering_coeff(g);
+        const GraphDesc g = {static_cast<size_t>(N), static_cast<size_t>(k), t, Utils::mu_inv(N, k, c_t)};
+        const auto g_temp = AuxGraphs::create_graph<Graph>(g, rng);
+        return NetworkAnalyser::global_clustering_coeff(g_temp);
     }
     else {
         return clustering_ER(N, k);

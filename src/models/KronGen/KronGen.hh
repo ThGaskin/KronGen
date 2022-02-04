@@ -14,14 +14,14 @@
 
 // Kronecker Graph generation file
 #include "graph_creation.hh"
-#include "graph_definition.hh"
+#include "type_definitions.hh"
 
 // The NetworkAnalyser
 #include "../NetworkAnalyser/NetworkAnalyser.hh"
 
 namespace Utopia::Models::KronGen {
 
-using namespace Utopia::Models::KronGen::GraphDefinition;
+using namespace Utopia::Models::KronGen::TypeDefinitions;
 
 // ++ Type definitions ++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 

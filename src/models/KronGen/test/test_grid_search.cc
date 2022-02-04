@@ -12,15 +12,15 @@
 #include <utopia/core/graph.hh>
 
 #include "../KronGen.hh"
-#include "../graph_types.hh"
 #include "../grid_search.hh"
+#include "../type_definitions.hh"
 #include "../utils.hh"
 
 using namespace Utopia;
 using namespace Utopia::Models::KronGen::GridSearch;
 using namespace Utopia::Models::KronGen::Utils;
+using namespace Utopia::Models::KronGen::TypeDefinitions;
 using namespace Utopia::TestTools;
-
 
 struct Infrastructure : public BaseInfrastructure<> {
     Infrastructure() : BaseInfrastructure<>("test_grid_search.yml") {};
@@ -62,7 +62,7 @@ BOOST_AUTO_TEST_CASE (test_get_N_factors)
 
 BOOST_AUTO_TEST_CASE (test_get_k_factors)
 {
-    const std::vector<size_t> targets = {0, 1, 2, 6, 16, 50, 51, 169, 500, 5000};
+    const std::vector<size_t> targets = {1, 2, 6, 16, 50, 51, 169, 500, 5000};
     for (const auto& k : targets) {
         auto factors = get_k_factors(k, false);
         for (const auto& f : factors) {
@@ -240,13 +240,19 @@ BOOST_AUTO_TEST_CASE (test_type_search)
     };
     test_map.insert({"diameter", entry_type{{"target", {true, 30.0}}}});
 
-    auto s = std::any_cast<double>(test_map["diameter"]["target"].second);
     std::vector<size_t> N = {10, 12, 17, 19, 31};
     std::vector<size_t> k = {2, 4, 8, 5, 2};
 
     auto types = find_possible_types(N, k, test_map, 0.1);
 
     BOOST_TEST((types[0] == std::vector<GraphType>{N.size(), GraphType::ErdosRenyi}));
+    bool found_chain = false;
+    for (const auto& type : types) {
+        if (type.back() == GraphType::Chain) {
+            found_chain = true;
+        }
+    }
+    BOOST_TEST(found_chain);
 }
 
 // // // Test the grid search
