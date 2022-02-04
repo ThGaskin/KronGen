@@ -381,40 +381,27 @@ class NetworkAnalyser : public Model<NetworkAnalyser<GraphType>, ModelTypes>
               std::vector<std::pair<size_t, size_t>> deg_seq;
               if (not _g[0].state.degree_sequence.empty()){
                   deg_seq = _g[0].state.degree_sequence;
-
               }
               else {
                   deg_seq = degree_sequence(_g);
               }
               size_t i = 0;
-              if (_g[0].state.num_vertices < num_vertices) {
-                  _dset_degree_sequence->write(v, v_end, [deg_seq, &i](const auto v) {
-                      if (deg_seq[i].first == v){
-                          auto res = deg_seq[i].second;
-                          ++i;
-                          return res;
-                      }
-                      else{
-                        return size_t(0);
-                      }
-                  });
-              }
-              else {
-                std::vector<int> vertices(static_cast<size_t>(_g[0].state.num_vertices));
-                std::iota (std::begin(vertices), std::end(vertices), 0);
-                auto n = std::begin(vertices);
-                auto n_end = std::end(vertices);
-                _dset_degree_sequence->write(n, n_end, [deg_seq, &i](const auto n) {
-                    if (deg_seq[i].first == n){
-                        auto res = deg_seq[i].second;
-                        ++i;
-                        return res;
-                    }
-                    else{
+              const size_t N = std::max(num_vertices, static_cast<size_t>(_g[0].state.num_vertices));
+              std::vector<int> vertices(N);
+              std::iota(vertices.begin(), vertices.end(), 0);
+              auto n = std::begin(vertices);
+              auto n_end = std::end(vertices);
+              _dset_degree_sequence->write(n, n_end, [&deg_seq, &i](const auto n) {
+                  if (deg_seq[i].first == n and i < deg_seq.size()){
+                      auto res = deg_seq[i].second;
+                      ++i;
+                      return res;
+                  }
+                  else{
                       return size_t(0);
-                    }
-                });
-              }
+                  }
+              });
+
           }
 
           if (num_vertices == 2 and _g[0].state.num_vertices) {

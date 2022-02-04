@@ -28,6 +28,7 @@ def heatmap(data,
     """
 
     df = pd.DataFrame(data['data'].data_vars['z'].data)
+
     im = hlpr.ax.pcolor(df, **plot_kwargs)
 
     hlpr.ax.set_yticks([i for i in np.linspace(0.5,
@@ -41,5 +42,4 @@ def heatmap(data,
     divider = make_axes_locatable(hlpr.ax)
     cax = divider.append_axes("right", size="5%", pad=0.2)
     cbar = hlpr.fig.colorbar(im, cax=cax)
-
     hlpr.select_axis(0, 0)

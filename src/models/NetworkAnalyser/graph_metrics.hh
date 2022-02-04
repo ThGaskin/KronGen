@@ -25,7 +25,7 @@ template<typename GraphType>
 std::vector<std::pair<size_t, size_t>> degree_sequence(const GraphType& g)
 {
     std::vector<std::pair<size_t, size_t>> deg_seq;
-    std::vector<int> indices(boost::num_vertices(g), 0);
+    std::vector<size_t>indices(boost::num_vertices(g), 0);
     for (const auto v : range<IterateOver::vertices>(g)){
         const size_t k = boost::degree(v, g);
         ++indices[k];

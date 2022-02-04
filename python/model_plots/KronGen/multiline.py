@@ -22,8 +22,9 @@ def multiline(data,
     """
 
     to_plot = data['data']
-
-    hlpr.ax.plot(to_plot.coords[x].data, to_plot.data_vars['y'].data, **plot_kwargs)
+    x_data = to_plot.coords[x].data
+    y_data = to_plot.data_vars['y'].data
+    hlpr.ax.plot(x_data, y_data, **plot_kwargs)
 
     hlpr.ax.grid(linewidth=0.5, alpha=0.5)
 

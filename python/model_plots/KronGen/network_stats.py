@@ -3,7 +3,6 @@ import matplotlib.pyplot as plt
 import numpy as np
 import math
 
-from matplotlib import rc
 from utopya import DataManager, UniverseGroup
 from utopya.plotting import is_plot_func, PlotHelper, UniversePlotCreator
 
@@ -45,6 +44,7 @@ def network_stats(dm: DataManager, *,
     for item in gridspec:
         axs.append([figure.add_subplot(gs[item])])
     hlpr.attach_figure_and_axes(fig=figure, axes=axs)
+
     # .. Plot data histogram on each axis ......................................
     for i in range(n_plots):
         hlpr.select_axis(0, i)
@@ -61,8 +61,7 @@ def network_stats(dm: DataManager, *,
 
         # Plot histograms
         if (plots[i] in ['degree', 'degree_sequence']):
-            if 'bins' in plot_kwargs.keys():
-                plot_kwargs.remove('bins')
+
             if (plots[i] == 'degree_sequence'):
                 x = np.nonzero(data_to_plot)[0]
                 y = [data_to_plot[i] for i in x]
@@ -77,14 +76,14 @@ def network_stats(dm: DataManager, *,
                       +"\n"
                       +f"min: {x[0]}")
 
-                hlpr.ax.text(0.65, 0.85, txt, color="cornflowerblue", transform=hlpr.ax.transAxes, backgroundcolor=(1, 1, 1, 0.8))
-                hlpr.ax.axvline(loc, color="cornflowerblue")
+                hlpr.ax.text(0.65, 0.85, txt, color="cornflowerblue",
+                             transform=hlpr.ax.transAxes, backgroundcolor=(1, 1, 1, 0.8))
+                hlpr.ax.axvline(loc, color="cornflowerblue", zorder=-1)
+
             else:
                 min = np.min(data_to_plot)
                 max = np.max(data_to_plot)
-                hist = hlpr.ax.hist(data_to_plot,
-                             bins=np.logspace(np.log10(min),np.log10(max), 100),
-                             **plot_kwargs)
+                hist = hlpr.ax.hist(data_to_plot, **plot_kwargs)
         else:
             hist = hlpr.ax.hist(data_to_plot, **plot_kwargs)
 
@@ -115,10 +114,6 @@ def network_stats(dm: DataManager, *,
                   +"\n"
                   +f"min: {np.around(np.min(data_to_plot), 3)}")
 
-            hlpr.ax.text(0.65, 0.85, txt, color="cornflowerblue", transform=hlpr.ax.transAxes, backgroundcolor=(1, 1, 1, 0.8))
+            hlpr.ax.text(0.65, 0.85, txt, color="cornflowerblue",
+                         transform=hlpr.ax.transAxes, backgroundcolor=(1, 1, 1, 0.8))
             hlpr.ax.axvline(loc, color="cornflowerblue")
-
-        # Set log scales
-        if (plots[i] in ['degree', 'degree_sequence']):
-            hlpr.ax.set_xscale('log')
-            hlpr.ax.set_yscale('log')
