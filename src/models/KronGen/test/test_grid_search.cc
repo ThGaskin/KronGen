@@ -22,6 +22,9 @@ using namespace Utopia::Models::KronGen::Utils;
 using namespace Utopia::Models::KronGen::TypeDefinitions;
 using namespace Utopia::TestTools;
 
+auto logger = Utopia::init_logger("core", spdlog::level::info);
+
+
 struct Infrastructure : public BaseInfrastructure<> {
     Infrastructure() : BaseInfrastructure<>("test_grid_search.yml") {};
 };
@@ -31,6 +34,9 @@ struct Test_Graph : Infrastructure {
 
   // undirected
   using Graph = Utopia::Models::KronGen::NWType;
+
+  using objective_function
+  = typename std::function<double(double, std::vector<GraphDesc>, std::mt19937&)>;
 
 };
 
@@ -181,12 +187,14 @@ BOOST_AUTO_TEST_CASE (test_k_grid)
                 BOOST_TEST(k.size() >= min_dim);
                 BOOST_TEST(k.size() <= max_dim);
                 if (k.size() == 2) {
-                    BOOST_TEST(Kronecker_mean_degree_inv(k_res, k[1]) == k[0]);
+                    BOOST_TEST((k_res + 1)/ (k[1] +1) == k[0]+1);
                 }
             }
         }
     }
 }
+
+// TO DO: Test getting the grid in mu
 
 // Test the validity check
 BOOST_AUTO_TEST_CASE (test_validity_check)
@@ -200,6 +208,7 @@ BOOST_AUTO_TEST_CASE (test_validity_check)
     BOOST_TEST(check_validity(N, k, test_map));
 
     test_map["degree_sequence"]["target"].first = true;
+    test_map["degree_sequence"]["target"].second = std::string("scale-free");
     BOOST_TEST(!check_validity(N, k, test_map));
 
     k[0] = 3;
@@ -255,8 +264,53 @@ BOOST_AUTO_TEST_CASE (test_type_search)
     BOOST_TEST(found_chain);
 }
 
-// // // Test the grid search
-// BOOST_FIXTURE_TEST_CASE (test_grid_search, Test_Graph)
-// {
-//
-// }
+// Test the grid search
+BOOST_FIXTURE_TEST_CASE (test_grid_search, Test_Graph)
+{
+  test_config_callable (
+
+    [&](auto test_cfg){
+      const auto cfg = get_as<Config>("KronGen", test_cfg);
+      auto targets = Utopia::Models::KronGen::Utils::get_analysis_targets(YAML::Node(), cfg["targets"]);
+
+      const size_t d_min = get_as<size_t>("min_dimension", cfg);
+      const size_t d_max = get_as<size_t>("max_dimension", cfg);
+      const size_t d_mu = get_as<size_t>("num_mu", cfg);
+      const double tolerance = get_as<double>("tolerance", cfg);
+
+      auto objective_funcs = ObjectiveFuncs::get_obj_funcs<objective_function>(cfg, targets, log);
+      BOOST_TEST(objective_funcs.size() > 0);
+      BOOST_TEST((objective_funcs.find("num_vertices") != objective_funcs.end()));
+
+      const auto N_0 = std::any_cast<double>(targets["num_vertices"]["target"].second);
+      const auto k_0 = std::any_cast<double>(targets["mean_degree"]["target"].second);
+      const auto grid_center = std::make_pair<size_t, size_t>(N_0, k_0);
+
+      const auto Paretos = GridSearch::get_Paretos<Graph>(
+          d_min, d_max, d_mu, grid_center, tolerance, targets, objective_funcs, log, *rng
+      );
+
+      BOOST_TEST(Paretos.size() >= 1);
+      BOOST_TEST(Paretos[0].size() >= 1);
+      BOOST_TEST(std::any_cast<double>(targets["error"]["calculate"].second) > 0);
+
+      for (const auto& Pareto_point : Paretos) {
+          BOOST_TEST(Pareto_point.size() >= d_min);
+          if (Utopia::Models::KronGen::Utils::is_target(targets, "degree_sequence", "scale_free")) {
+              BOOST_TEST(Pareto_point.size() <= d_min);
+          }
+          for (const auto& graph : Pareto_point) {
+              BOOST_TEST(graph.num_vertices > 1);
+              BOOST_TEST(graph.mean_degree >= 1);
+              if (graph.mean_degree == 1) {
+                  BOOST_TEST(graph.num_vertices == 2);
+              }
+              if (Utopia::Models::KronGen::Utils::is_target(targets, "degree_sequence", "scale_free")) {
+                  BOOST_TEST(graph.mean_degree > 3);
+              }
+          }
+      }
+    },
+    cfg
+  );
+}

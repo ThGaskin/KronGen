@@ -75,34 +75,6 @@ std::string Graph_Type[] = {
     "Small-world"
 };
 
-// Converts a string to a GraphType
-GraphType to_graphtype(std::string s) {
-    if (s == "BarabasiAlbert"){
-        return BarabasiAlbert;
-    }
-    else if (s == "chain") {
-        return Chain;
-    }
-    else if (s == "complete") {
-        return Complete;
-    }
-    else if (s == "ErdosRenyi") {
-        return ErdosRenyi;
-    }
-    else if (s == "KlemmEguiluz") {
-        return KlemmEguiluz;
-    }
-    else if (s == "regular" or s == "Regular") {
-        return Regular;
-    }
-    else if (s == "WattsStrogatz"){
-        return SmallWorld;
-    }
-    else {
-        return ErdosRenyi;
-    }
-}
-
 // The graph vertex type
 struct VertexState
 {

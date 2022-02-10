@@ -15,4 +15,5 @@ add_model_tests(# Use consistent capitalization for the model name!
                   "test_aux_graphs.yml"
                   "test_config_extraction.yml"
                   "test_Kronecker_properties.yml"
+                  "test_grid_search.yml"
                 )

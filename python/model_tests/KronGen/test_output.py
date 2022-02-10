@@ -61,7 +61,7 @@ def test_run_and_eval_cfgs():
             continue
 
         print("\nRunning '{}' example ...".format(cfg_name))
-        
+
         mv, dm = mtc.create_run_load(from_cfg=cfg_paths.get('run'), perform_sweep=True)
         mv.pm.plot_from_cfg(plots_cfg=cfg_paths.get('eval'))
 
@@ -76,12 +76,12 @@ def test_run_and_eval_cfgs():
                     assert(item in data.keys())
                     val = data[item].data.data
 
-                    if (item == 'clustering_global' or val == 'diameter'):
+                    if (item == 'clustering' or val == 'diameter'):
                         assert(len(val)==1)
                         assert(0 <= val)
 
                     else:
                         assert(len(val) == len(data['_vertices'].data.data))
 
-                    if (item == 'clustering_global'):
+                    if (item == 'clustering'):
                         assert (val <= 1)

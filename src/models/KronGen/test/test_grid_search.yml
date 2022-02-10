@@ -1,77 +1,77 @@
 ---
 case1:
   params:
-    create_graph:
-      model: Kronecker
-      build_graph: false
       KronGen:
         targets:
-          entry: 0
-        max_dimension: 1
+          num_vertices:
+            value: 120
+            weight: 1
+          mean_degree:
+            value: 50
+            weight: 1
+          clustering:
+            value: 1
+            weight: 1
+        max_dimension: 3
         min_dimension: 1
-        tolerance: 0
-    NetworkAnalyser:
-      graph_analysis:
-        enabled: false
-  throws: std::invalid_argument
-  match: You must provide the target number of vertices!
+        tolerance: 0.2
+        num_mu: 10
 
 case2:
   params:
-    create_graph:
-      model: Kronecker
-      build_graph: false
       KronGen:
         targets:
-          num_vertices: 50
-        max_dimension: 1
-        min_dimension: 1
-        tolerance: 0
-    NetworkAnalyser:
-      graph_analysis:
-        enabled: false
-  assert:
-    enabled: false
-
-case3:
-  params:
-    create_graph:
-      model: Kronecker
-      build_graph: false
-      KronGen:
-        targets:
-          num_vertices: 51
-          mean_degree: 17
-        max_dimension: 1
-        min_dimension: 1
-        tolerance: 0
-    NetworkAnalyser:
-      graph_analysis:
-        enabled: false
-  assert:
-    enabled: true
-    num_vertices: 51
-    mean_degree: 17
-    num_factors: 1
-
-case4:
-  params:
-    create_graph:
-      model: Kronecker
-      build_graph: false
-      KronGen:
-        targets:
-          num_vertices: 51
-          mean_degree: 2
+          num_vertices:
+            value: 50
+            weight: 1.0
+          mean_degree:
+            value: 30
+            weight: 1.0
           degree_sequence: scale-free
-        max_dimension: 1
-        min_dimension: 1
+        max_dimension: 2
+        min_dimension: 2
         tolerance: 0
-    NetworkAnalyser:
-      graph_analysis:
-        enabled: false
-  assert:
-    enabled: true
-    num_vertices: 51
-    mean_degree: 17
-    num_factors: 1
+        num_mu: 1
+#
+# case3:
+#   params:
+#     create_graph:
+#       model: KronGen
+#       build_graph: false
+#       KronGen:
+#         targets:
+#           num_vertices: 51
+#           mean_degree: 17
+#         max_dimension: 1
+#         min_dimension: 1
+#         tolerance: 0
+#     NetworkAnalyser:
+#       graph_analysis:
+#         enabled: false
+#   assert:
+#     enabled: true
+#     num_vertices: 51
+#     mean_degree: 17
+#     num_factors: 1
+#
+# case4:
+#   params:
+#     create_graph:
+#       model: KronGen
+#       build_graph: false
+#       KronGen:
+#         targets:
+#           num_vertices: 51
+#           mean_degree: 2
+#           degree_sequence: scale-free
+#         max_dimension: 1
+#         min_dimension: 1
+#         tolerance: 0
+#     NetworkAnalyser:
+#       graph_analysis:
+#         enabled: false
+#   assert:
+#     enabled: true
+#     num_vertices: 51
+#     mean_degree: 17
+#     num_factors: 1

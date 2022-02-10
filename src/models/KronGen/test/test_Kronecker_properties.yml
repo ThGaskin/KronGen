@@ -47,7 +47,6 @@ Graph2:
         degree_sequence: true
         clustering: true
         diameter: true
-
 Graph3:
   params:
     create_graph:
@@ -70,7 +69,6 @@ Graph3:
         degree_sequence: true
         clustering: true
         diameter: true
-
 Graph4:
   params:
     create_graph:
@@ -89,7 +87,6 @@ Graph4:
         degree_sequence: true
         clustering: true
         diameter: true
-
 Graph5:
   params:
     create_graph:
@@ -114,7 +111,6 @@ Graph5:
         degree_sequence: true
         clustering: true
         diameter: true
-
 Graph6:
   params:
     create_graph:
@@ -134,11 +130,10 @@ Graph6:
         degree_sequence: true
         clustering: true
         diameter: true
-
 Graph7:
   params:
     create_graph:
-      build_graph: true      
+      build_graph: true
       model: Kronecker
       Kronecker:
         Graph1:
@@ -148,6 +143,25 @@ Graph7:
         Graph2:
           model: chain
           num_vertices: 19
+    NetworkAnalyser:
+      graph_analysis:
+        enabled: true
+        degree_sequence: true
+        clustering: true
+        diameter: true
+Graph8:
+  params:
+    create_graph:
+      build_graph: true
+      model: Kronecker
+      Kronecker:
+        power: 2
+        Graph1:
+          model: star
+          num_vertices: 10
+          mean_degree: 4
+          star:
+            diameter: 2
     NetworkAnalyser:
       graph_analysis:
         enabled: true

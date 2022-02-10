@@ -17,7 +17,7 @@ using namespace Utopia::Models::KronGen::TypeDefinitions;
 // ... Kronecker product utility functions .....................................
 // .............................................................................
 
-/// Kronecker product of graphs. Graphs must have a self-loop on every node
+/// Kronecker product of undirected graphs. Graphs must have a self-loop on every node
 /**
   * \tparam  Graph  The graph type
   * \param G        The first factor
@@ -66,18 +66,30 @@ Graph Kronecker_product(Graph& G, Graph& H)
 */
 double Kronecker_num_vertices (const double N, const double M)
 {
-    return (N*M);
+    return N * M;
 }
 
-/// Calculate the mean degree of a Kronecker product of two graphs G, H
+/// Calculate the number of vertices of a Kronecker product of two graphs G, H
+/**
+  * \param g    The mean degree of G
+  * \param h    The mean degree of H
+  *
+  * \return     The mean_degree of G (x) H
+*/
 double Kronecker_mean_degree (const double g, const double h)
 {
-    return ( ((g+1)*(h+1)) -1);
+    return ((g+1)*(h+1) - 1);
 }
 
-/// Calculate the degree distribution variance of a Kronecker product of two
-/// graphs G, H with mean degrees g, h, and degree distribution variances
-/// v_g, v_h
+/// Calculate the degree distribution variance of a Kronecker product of two graphs G, H
+/**
+  * \param g    The mean degree of G
+  * \param h    The mean degree of H
+  * \param v_g  The degree variance of G
+  * |param v_h  The degree variance of H
+  *
+  * \return     The degree variance of G (x) H
+*/
 double Kronecker_degree_variance (const double g,
                                   const double h,
                                   const double v_g,
@@ -86,46 +98,46 @@ double Kronecker_degree_variance (const double g,
     return (v_g*v_h + pow(1+g, 2)*v_h + pow(1+h, 2)*v_g);
 }
 
-/// Returns the degree sequence of a Kronecker product of graphs with given degree
-/// sequences seq_1 and seq_2. A degree sequence is a vector of type {{k, n_k}}
-vector_pt Kronecker_degree_sequence(const vector_pt seq_1, const vector_pt seq_2)
+/// Calculate the degree sequence of a Kronecker product of two graphs G, H.
+/// A degree sequence is a vector of pairs {{k, n_k}}
+/**
+  * \param seq_G   The degree sequence of G
+  * \param seq_H   The degree sequence of H
+  *
+  * \return       The degree sequence of G (x) H
+*/
+vector_pt Kronecker_degree_sequence(const vector_pt& seq_G,
+                                    const vector_pt& seq_H)
 {
-    const size_t k_max = (seq_1.back().first+1)*(seq_2.back().first+1);
+    const size_t k_max = (seq_G.back().first+1)*(seq_H.back().first+1);
     std::vector<size_t> indices(k_max, 0);
-    for (size_t i = 0; i < seq_1.size(); ++i){
-        for (size_t j = 0; j < seq_2.size(); ++j){
-            const auto k = (seq_1[i].first+1)*(seq_2[j].first+1)-1;
-            indices[k] += seq_1[i].second*seq_2[j].second;
+    for (size_t i = 0; i < seq_G.size(); ++i){
+        for (size_t j = 0; j < seq_H.size(); ++j){
+            const auto k = (seq_G[i].first+1)*(seq_H[j].first+1)-1;
+            indices[k] += seq_G[i].second*seq_H[j].second;
         }
     }
-    vector_pt res;
+    vector_pt seq_K;
     for (size_t i = 0; i < indices.size(); ++i){
         if (indices[i] > 0) {
-            res.push_back({i, indices[i]});
+            seq_K.push_back({i, indices[i]});
         }
     }
-    return res;
-}
 
-/// Caclulate the required mean degree of a Kronecker factor, given the target
-/// and one other factor
-double Kronecker_mean_degree_inv (const double k, const double g)
-{
-    return ((k+1)/(g+1)-1);
+    return seq_K;
 }
-
 
 /// Calculate the clustering coefficient of a Kronecker product of two graphs G, H
-/** This product is symmetric in G, H
- * \param c_G        The clustering coefficient of the first graph
- * \param c_H        The clustering coefficient of the second graph
- * \param g          The mean degree of the first graph
- * \param h          The mean degree of the second graph
- * \param var_g      The degree distribution variance of the first graph
- * \param var_h      The degree distribution variance of the second graph
- *
- * \return c         The clustering coefficient of the Kronecker product
- */
+/**
+  * \param c_G        The clustering coefficient of G
+  * \param c_H        The clustering coefficient of H
+  * \param g          The mean degree of G
+  * \param h          The mean degree of H
+  * \param var_g      The degree distribution variance of G
+  * \param var_h      The degree distribution variance of H
+  *
+  * \return           The clustering coefficient of the Kronecker product
+  */
 double Kronecker_clustering (const double c_G,
                              const double c_H,
                              const double g,
@@ -189,21 +201,20 @@ Graph build_initiator_graph (const bool entire_graph_needed) {
 // ... Property extraction and analysis functions ..............................
 // .............................................................................
 
-// Collect all parameters that are either target parameters or merely to be
-// calculated from a configuration. Returns a map of keys (parameter names),
-// whether they are to be calculated (true/false + value), and whether they are targets
-// (true/false + value).
+/// Collect all parameters that are either target parameters or merely to be
+/// calculated from a configuration. Returns a map of keys (parameter names),
+/// whether they are to be calculated (true/false + value), and whether they are
+/// targets (true/false + value).
 /**
- * \param analysis_cfg        The cfg of parameters to be analysed
- * \param target_cfg          The cfg of target parameters
+  * \param analysis_cfg        The cfg of parameters to be analysed
+  * \param target_cfg          The cfg of target parameters
 
- * \return analysis_targets   A map of parameter names as keys, and a second map
-                              as the value, which contains the values for the
-                              calculations, as well as the target values
- */
-map_type get_analysis_targets(
-    const Config& analysis_cfg,
-    const Config& target_cfg = YAML::Node())
+  * \return analysis_targets   A map of parameter names as keys, and a second map
+                               as the value, which contains the values for the
+                               calculations, as well as the target values
+  */
+map_type get_analysis_targets(const Config& analysis_cfg,
+                              const Config& target_cfg = YAML::Node())
 {
     using namespace std;
 
@@ -271,9 +282,9 @@ map_type get_analysis_targets(
             }
         }
     }
+
     // Next, add any potential analysis targets that are not already included in
     // the target config
-
     for (const auto& param : analysis_cfg){
         const string param_name = param.first.as<string>();
 
@@ -322,12 +333,16 @@ map_type get_analysis_targets(
 
 }
 
-// Calculates the graph properties with a given map of analysis parameters
+/// Calculates the graph properties with a given map of analysis parameters
 /**
- * \tparam h                   The current graph factor
- * \tparam Logger             The model logger
- * \param analysis_targets    The map of calculated parameters from previous factors
- */
+  * \tparam Graph              The graph type
+  * \tparam Logger             The model logger type
+  *
+  * \param h                   The graph to be analysed
+  * \param analysis_targets    The map of calculated parameters from previous
+                               factors
+  * \param log                 The model logger
+  */
 template<typename Graph, typename Logger>
 void calculate_properties(const Graph& h,
                           map_type& analysis_targets,
@@ -395,11 +410,11 @@ void calculate_properties(const Graph& h,
     }
 }
 
-// Writes the graph properties into the first vertex of the resulting graph
+/// Writes the graph properties into the first vertex of the resulting graph
 /**
- * \param K                   The final Kronecker graph
- * \param analysis_targets    The map of calculated parameters from previous factors
- */
+  * \param K                   The final Kronecker graph
+  * \param analysis_targets    The map of calculated parameters from previous factors
+  */
 template<typename Graph>
 void write_properties(Graph& K, map_type& analysis_targets){
     for (auto& p : analysis_targets) {
@@ -464,7 +479,7 @@ std::map<std::string, double> extract_targets(map_type& analysis_and_targets)
     return targets;
 }
 
-// Returns 'true' if a certain parameter is a target/calculate parameter
+/// Return 'true' if a parameter is a target/analysis parameter
 bool is_param(map_type& map, std::string param, std::string target = "target") {
 
     if (map.find(param) != map.end()){
@@ -474,9 +489,8 @@ bool is_param(map_type& map, std::string param, std::string target = "target") {
     }
     return false;
 }
-
-// Overload functions: return 'true' if a certain value is the target of the
-// given parameter
+/// Overloads
+/// Return 'true' if a parameter is a target and is equal to a given value
 bool is_target(map_type& map, std::string param, std::string val){
     if (map.find(param) != map.end()){
         if (map[param]["target"].first) {
@@ -508,6 +522,19 @@ bool is_target(map_type& map, std::string param, double val){
         }
     }
     return false;
+}
+
+// Find an estimated mu value for a given clustering coefficient
+// TO DO: This must be generalised to arbitrary target parameters
+double mu_inv(const double N, const double k, const double c_t)
+{
+    double b = 1.8;
+    double m = 1.0*std::round(-0.5*sqrt(4.0*(pow(N, 2)) - 4.0*N*(k+1) + 1) + N - 0.5);
+    double c_0 = 2./3.-1/(3*m);
+    double c_1 = pow((m-1), (2./3))/(3.3)*pow(log(N), 2)/N;
+    double a = (c_0 - c_1)*exp(b);
+
+    return std::max(0., std::min(1., sqrt(-1.0/b*log((c_t-c_1)/a))-1));
 }
 
 // .............................................................................
@@ -672,7 +699,7 @@ factors get_k_grid (const size_t grid_center,
     return get_grid(grid_center, get_k_factors, err, d, d);
 }
 
-// Return the k-grid
+// Return the k-grid (dimension span)
 factors get_k_grid (const size_t grid_center,
                     const double err,
                     const size_t d_min,
@@ -681,24 +708,11 @@ factors get_k_grid (const size_t grid_center,
     return get_grid(grid_center, get_k_factors, err, d_min, d_max);
 }
 
-// Find an estimated mu value for a given clustering coefficient
-double mu_inv(const double N, const double k, const double c_t)
-{
-    double b = 1.8;
-    double m = 1.0*std::round(-0.5*sqrt(4.0*(pow(N, 2)) - 4.0*N*(k+1) + 1) + N - 0.5);
-    double c_0 = 2./3.-1/(3*m);
-    double c_1 = pow((m-1), (2./3))/(3.3)*pow(log(N), 2)/N;
-    double a = (c_0 - c_1)*exp(b);
-
-    return std::max(0., std::min(1., sqrt(-1.0/b*log((c_t-c_1)/a))-1));
-}
-
-// Get a grid in mu
+// Return the mu-grid
 std::vector<double> get_mu_grid(const double mu,
                                 const double tolerance,
                                 const size_t grid_size)
 {
-
     const double lower_bound = std::max(0., mu*(1-tolerance));
     const double upper_bound = std::min(1., mu*(1+tolerance));
     const double step_size = (upper_bound-lower_bound)/grid_size;

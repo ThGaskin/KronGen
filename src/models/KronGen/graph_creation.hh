@@ -152,139 +152,85 @@ Graph create_KronGen_graph(const Config& cfg,
     // If no mean degree provided, generate a random value
     if (targets.find("mean_degree") == targets.end()) {
         targets.insert({"mean_degree",
-            Utils::entry_type{{"target", std::make_pair<bool, double>(false,
-                       static_cast<double>(
-                       std::round(prob_distr(rng)
-                       * (std::any_cast<double>(targets["num_vertices"]["target"].second)-1))))}}
+            entry_type{{"target", std::make_pair<bool, double>(false,
+                        static_cast<double>(3+
+                        std::round(prob_distr(rng)
+                        * (std::any_cast<double>(targets["num_vertices"]["target"].second)-4))))}}
         });
     }
 
-    // Create map of objective functions and weights, and output info message.
-    std::map<std::string, std::pair<double, objective_function>> objective_funcs;
-    log->info("Assembling Kronecker graph with the following properties: ");
-    for (const auto& p : targets) {
-
-        const std::string param = p.first;
-
-        // If parameter is not a target value, continue
-        if (targets[param]["target"].first == false){
-            continue;
-        }
-
-        const Config parameter_cfg = get_as<Config>(p.first, cfg["targets"]);
-
-
-        // Degree sequence is not determined via an objective function
-        if (param == "degree_sequence") {
-            log->info("{}: {}", param, std::any_cast<std::string>(targets[param]["target"].second));
-            continue;
-        }
-        // Collect objective functions for the various target parameters
-        if (param == "clustering") {
-
-            objective_funcs[param]
-            = std::make_pair<double, objective_function>(
-              get_as<double>("weight", parameter_cfg),
-              ObjectiveFuncs::clustering_obj_func);
-        }
-        else if (param == "diameter") {
-            objective_funcs[param]
-            = std::make_pair<double, objective_function>(
-              get_as<double>("weight", parameter_cfg),
-              ObjectiveFuncs::diameter_obj_func);
-        }
-        else if (param == "mean_degree") {
-            objective_funcs[param]
-            = std::make_pair<double, objective_function>(
-              get_as<double>("weight", parameter_cfg),
-              ObjectiveFuncs::k_obj_func);
-        }
-        else if (param == "num_vertices") {
-            objective_funcs[param]
-            = std::make_pair<double, objective_function>(
-              get_as<double>("weight", parameter_cfg),
-              ObjectiveFuncs::N_obj_func);
-        }
-        log->info("{}: {}", param, std::any_cast<double>(targets[param]["target"].second));
-    }
-
-    // Get grid search parameters: get minimum and maximum factor size
+    // Get grid parameters
     const size_t d_min = get_as<size_t>("min_dimension", cfg);
     const size_t d_max = get_as<size_t>("max_dimension", cfg);
     const size_t d_mu = get_as<size_t>("num_mu", cfg);
+    const double tolerance = get_as<double>("tolerance", cfg);
     if (d_min > d_max) {
         throw std::invalid_argument("Dimension arguments incorrect!");
     }
 
-    // Get grid center
+    // Create map of objective functions and weights, and output info message.
+    auto objective_funcs = ObjectiveFuncs::get_obj_funcs<objective_function>(cfg, targets, log);
+
+    // Use target number of vertices and mean degree as grid center
     const auto N_0 = std::any_cast<double>(targets["num_vertices"]["target"].second);
     const auto k_0 = std::any_cast<double>(targets["mean_degree"]["target"].second);
     const auto grid_center = std::make_pair<size_t, size_t>(N_0, k_0);
 
-    // Get grid search scope
-    const double tolerance = get_as<double>("tolerance", cfg);
-
-    // Perform grid search
+    // Perform grid search and record number of Pareto points found
+    log->info("Commencing grid search ... ");
     const auto Paretos = GridSearch::get_Paretos<Graph>(
         d_min, d_max, d_mu, grid_center, tolerance, targets, objective_funcs, log, rng
     );
+    log->info("Grid search complete. Found {} Pareto point(s).", Paretos.size());
+    targets["num_Paretos"]["calculate"].second = Paretos.size();
 
-    // Collect the number of Pareto points found
-    const auto n_Paretos = Paretos.size();
-    targets["num_Paretos"]["calculate"].second = n_Paretos;
-    if (n_Paretos == 0) {
-        log->warn("No Pareto points found. It may be that your configuration "
-                  "settings are invalid. Consider changing the target parameters"
-                  " or grid size."
-         );
-         return Utils::build_initiator_graph<Graph>(false);
-    }
-
-    log->info("Grid search complete. Found {} Pareto point(s).", n_Paretos);
-
-    // If multiple Pareto points found, randomly pick one
-    const size_t rdm_pt = std::round(prob_distr(rng) * (n_Paretos-1));
+    // Randomly pick a Pareto point
+    const size_t rdm_pt = std::round(prob_distr(rng) * (Paretos.size()-1));
     const auto Pareto_point = Paretos[rdm_pt];
 
-    // Keep track of number of non-trivial factors
+    // Keep track of number of non-trivial factors and largest factor size
+    // in Pareto point
     auto n_factors = Pareto_point.size();
-    targets["num_factors"]["calculate"].second = n_factors;
-    log->info("Number of Kronecker factors: {}.", n_factors);
+    size_t largest_comp = 0;
+    log->info("Number of Kronecker factors in Pareto point: {}.", n_factors);
 
     // Create initiator graph
     Graph K = Utils::build_initiator_graph<Graph>(build_graph);
 
+    log->info("Assembling graph ...");
     // Assemble Kronecker graph
     for (const auto& graph : Pareto_point) {
 
         // Ignore trivial factors
         if (graph.mean_degree == 0 or graph.num_vertices == 1) {
-            targets["num_factors"]["calculate"].second = --n_factors;
+            --n_factors;
             continue;
         }
 
         // Keep track of largest factor size
-        if (graph.num_vertices > std::any_cast<size_t>(targets["largest_comp"]["calculate"].second)) {
-            targets["largest_comp"]["calculate"].second = graph.num_vertices;
+        if (graph.num_vertices > largest_comp) {
+            largest_comp = graph.num_vertices;
         }
 
         // Create graph
-        log->debug("Current factor: {} graph with {} vertices, mean degree k = {}{}" ,
+        log->debug("Creating {} graph with {} vertices, mean degree k = {}{}{}" ,
                    Graph_Type[graph.type], graph.num_vertices, graph.mean_degree,
-                   graph.type == KlemmEguiluz ? ", mu = "+std::to_string(graph.mu) : "");
+                   graph.type == KlemmEguiluz ? ", mu = "+std::to_string(graph.mu) : "", " ...");
         Graph H = AuxGraphs::create_graph<Graph>(graph, rng);
         // Calculate properties of Kronecker product
         Utils::calculate_properties(H, targets, log);
 
         // Build full graph if specified
         if (build_graph) {
-            log->debug("Assembling graph ...");
+            log->debug("Performing Kronecker product ...");
             Utils::add_self_edges(H);
             K = Utils::Kronecker_product(K, H);
         }
     }
 
     log->debug("Writing properties ...");
+    targets["num_factors"]["calculate"].second = n_factors;
+    targets["largest_comp"]["calculate"].second = largest_comp;
     Utils::write_properties(K, targets);
     Utils::remove_self_edges(K);
 

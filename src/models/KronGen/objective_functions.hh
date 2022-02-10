@@ -130,6 +130,64 @@ double k_obj_func (const double& k_t,
     return err_func(k_res, k_t+1);
 }
 
+
+/// Collects objective functions and weights from a config
+template<typename obj_func, typename Config, typename Logger>
+std::map<std::string, std::pair<double, obj_func>> get_obj_funcs(const Config& cfg,
+                                                                 map_type& targets,
+                                                                 const Logger& log)
+{
+    std::map<std::string, std::pair<double, obj_func>> objective_funcs;
+
+    log->info("Assembling Kronecker graph with the following properties: ");
+    for (const auto& p : targets) {
+
+        const std::string param = p.first;
+
+        // If parameter is not a target value, continue
+        if (targets[param]["target"].first == false){
+            continue;
+        }
+
+        const Config parameter_cfg = get_as<Config>(p.first, cfg["targets"]);
+
+        // Collect objective functions for the various target parameters.
+        // The degree sequence is not determined via an objective function
+        if (param == "degree_sequence") {
+            log->info("{}: {}", param, std::any_cast<std::string>(targets[param]["target"].second));
+            continue;
+        }
+        else if (param == "clustering") {
+            objective_funcs[param]
+            = std::make_pair<double, obj_func>(
+                get_as<double>("weight", parameter_cfg),
+                clustering_obj_func);
+        }
+        else if (param == "diameter") {
+            objective_funcs[param]
+            = std::make_pair<double, obj_func>(
+                get_as<double>("weight", parameter_cfg),
+                diameter_obj_func);
+        }
+        else if (param == "mean_degree") {
+            objective_funcs[param]
+            = std::make_pair<double, obj_func>(
+                get_as<double>("weight", parameter_cfg),
+                k_obj_func);
+        }
+        else if (param == "num_vertices") {
+            objective_funcs[param]
+            = std::make_pair<double, obj_func>(
+                get_as<double>("weight", parameter_cfg),
+                N_obj_func);
+        }
+        log->info("{}: {}", param, std::any_cast<double>(targets[param]["target"].second));
+    }
+
+    return objective_funcs;
+}
+
+
 } // namespace KronGen::ObjectiveFuncs
 
 #endif // UTOPIA_MODELS_KRONGEN_OBJECTIVE_FUNCS

@@ -32,7 +32,9 @@ bool check_validity(const factor& n,
                     const factor& k,
                     TargetMap& analysis_and_targets)
 {
-    bool is_scale_free = Utils::is_param(analysis_and_targets, "degree_sequence");
+    const bool is_scale_free = Utils::is_target(
+        analysis_and_targets, "degree_sequence", "scale-free"
+    );
 
     if (n.size() != k.size()) {
         return false;
@@ -153,13 +155,14 @@ ParetoSet generate_grid(const std::pair<size_t, size_t>& grid_center,
     if (n_grid.empty()) {
         log->warn("No factorisation of N = {} possible! Decreasing value.",
                   grid_center.first);
-        std::pair<size_t, size_t> grid_center_mod = {std::max(size_t(4), grid_center.first-1), grid_center.second};
+        const size_t min_n = pow(2, min_factors);
+        std::pair<size_t, size_t> grid_center_mod = {std::max(min_n, grid_center.first-1), grid_center.second};
         return generate_grid(grid_center_mod, grid_range, min_factors, max_factors, analysis_and_targets, log, rng);
     }
     else if (k_grid.empty()) {
         log->warn("No factorisation of k = {} possible! Decreasing value.",
                   grid_center.second);
-        std::pair<size_t, size_t> grid_center_mod = {grid_center.first, std::max(grid_center.second-1, size_t(3))};
+        std::pair<size_t, size_t> grid_center_mod = {grid_center.first, std::max(grid_center.second-1, size_t(5))};
         return generate_grid(grid_center_mod, grid_range, min_factors, max_factors, analysis_and_targets, log, rng);
     }
 
@@ -194,6 +197,10 @@ ParetoSet generate_grid(const std::pair<size_t, size_t>& grid_center,
         }
     }
 
+    if (grid.empty()) {
+        log->warn("Grid empty! Increase tolerance or change target values!");
+        return {{GraphDesc{2, 1, GraphType::Complete, 0}}};
+    }
     return grid;
 }
 
@@ -226,6 +233,7 @@ ParetoSet grid_search(const size_t& min_factors,
 {
 
     // Get the graph grid
+    log->debug("Generating grid ...");
     ParetoSet Grid = generate_grid(
         grid_center, grid_range, min_factors, max_factors,
         analysis_and_targets, log, rng
@@ -240,8 +248,7 @@ ParetoSet grid_search(const size_t& min_factors,
     const auto targets = Utils::extract_targets(analysis_and_targets);
 
     // Perform grid search
-    log->debug("Commencing grid search ...");
-
+    log->debug("Searching grid ...");
     for (const auto& graphs : Grid) {
 
         // Calculate error function for the list of graphs considered
@@ -260,7 +267,7 @@ ParetoSet grid_search(const size_t& min_factors,
         // previous Pareto points
         if ((current_err <= global_error) or (Paretos.empty())){
             if (current_err < global_error) {
-                Paretos = {};
+                Paretos.clear();
             }
             Paretos.emplace_back(graphs);
             global_error = current_err;
@@ -273,7 +280,7 @@ ParetoSet grid_search(const size_t& min_factors,
     return Paretos;
 }
 
-// Grid search for scale-free graphs (WIP)
+// Grid search for scale-free graphs
 /**
   * \param num_factors          Number of Kronecker factors
   * \param grid_center          Center of the grid to be searched
@@ -305,8 +312,6 @@ ParetoSet grid_search_SF(const size_t& num_factors,
     double global_error = 0;
 
     // Get estimated ideal mu parameter from grid and generate mu grid
-    // TO DO: This must be generalised to arbitrary target parameters
-    // TO DO: control the fineness of mu grid from frontend
     const double mu_0 = Grid[0][0].mu;
     const auto mu_grid = Utils::get_mu_grid(mu_0, grid_range, num_mu);
 
@@ -315,14 +320,14 @@ ParetoSet grid_search_SF(const size_t& num_factors,
     const auto targets = Utils::extract_targets(analysis_and_targets);
 
     // Perform grid search over N and k
-    log->debug("Commencing grid search ...");
+    log->debug("Searching grid ...");
     for (const auto& g : Grid) {
 
         // Take out largest factor in graph list
         auto graphs = g;
         size_t n_max = 0, n_max_idx = 0;
         for (size_t i = 0; i < graphs.size(); ++i) {
-            if (1000 > graphs[i].num_vertices > n_max){
+            if ((1000 > graphs[i].num_vertices) and (graphs[i].num_vertices > n_max)){
                 n_max = graphs[i].num_vertices;
                 n_max_idx = i;
             }
@@ -361,7 +366,7 @@ ParetoSet grid_search_SF(const size_t& num_factors,
         // Perform a grid search over mu for the largest component
         auto special_graph = g[n_max_idx];
 
-        log->debug("Commencing grid search in mu over graph with N={}, k={} ... ",
+        log->debug("Searching grid in mu over graph with N={}, k={} ... ",
             special_graph.num_vertices, special_graph.mean_degree);
 
         for (const auto& mu : mu_grid) {
@@ -383,7 +388,7 @@ ParetoSet grid_search_SF(const size_t& num_factors,
             if ((current_error <= global_error) or (Paretos.empty())){
 
                 if (current_error  < global_error) {
-                    Paretos = {};
+                    Paretos.clear();
                 }
 
                 Paretos.emplace_back(graphs);

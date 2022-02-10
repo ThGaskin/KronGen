@@ -11,35 +11,36 @@ parameter_space:
   # ... Model parameters .......................................................
   KronGen:
     create_graph:
-
       model: KronGen
       KronGen:
         targets:
           mean_degree:
-            value: 10
+            value: 55
             weight: 1.0
           num_vertices:
-            value: 500
+            value: 300
             weight: 1.0
           diameter:
-            value: 5
-            weight: 1.0
+            value: !sweep
+              default: 4
+              values: [3, 4, 5, 7, 8]
+            weight: 5.3
           clustering:
             value: !sweep
-              default: 0
-              linspace: [0.05, 0.95, 4]
-            weight: 1.0
-        tolerance: 0.1
+              default: 0.4
+              values: [0.2, 0.5, 1]
+            weight: 1.2
+          degree_sequence: scale-free
+        tolerance: 0.4
         min_dimension: 2
-        max_dimension: 4
-        num_mu: 1
+        max_dimension: 6
+        num_mu: 5
         build_graph: false
-
 
     # ... Analyser .............................................................
     NetworkAnalyser:
       <<: *run_defaults
       graph_analysis:
+        degree: false
         diameter: true
-        degree_sequence: true
         clustering_global: true

@@ -1,0 +1,42 @@
+heatmap:
+  creator: multiverse
+  expected_multiverse_ndim: [2,3,4,5]
+  module: model_plots.KronGen
+  plot_func: heatmap
+  select_and_combine:
+    fields:
+      x:
+        path: cfg/KronGen
+        transform:
+          - getitem: [!dag_prev , create_graph]
+          - getitem: [!dag_prev , KronGen]
+          - getitem: [!dag_prev , clustering]
+          - getitem: [!dag_prev , value]
+      y:
+        path: cfg/KronGen
+        transform:
+          - getitem: [!dag_prev , create_graph]
+          - getitem: [!dag_prev , KronGen]
+          - getitem: [!dag_prev , diameter]
+          - getitem: [!dag_prev , value]
+      z:
+        path: data/KronGen/NetworkAnalyser/graph_data/optimisation_error
+        transform:
+          - operation: .isel
+            args: [!dag_prev ]
+            kwargs:
+              time: -1
+  transform:
+    - operation: xr.Dataset
+      kwargs:
+        data_vars:
+          z: !dag_tag z
+      tag: data
+  x: clustering
+  y: diameter
+  helpers:
+    set_title:
+      title: Optimisation error
+    set_labels:
+      x: $c_T$
+      y: $d_T$
