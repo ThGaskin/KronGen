@@ -148,10 +148,8 @@ Graph create_KronGen_graph(const Config& cfg,
     std::uniform_real_distribution<double> prob_distr;
 
     // Get target parameters
-    auto targets = Utils::get_analysis_targets(analysis_cfg, get_as<Config>("targets", cfg["KronGen"]));
-    if (targets.find("num_vertices") == targets.end()) {
-      throw std::invalid_argument("You must provide the target number of vertices!");
-    }
+    auto targets = Utils::get_analysis_targets(analysis_cfg, cfg["targets"]);
+    // If no mean degree provided, generate a random value
     if (targets.find("mean_degree") == targets.end()) {
         targets.insert({"mean_degree",
             Utils::entry_type{{"target", std::make_pair<bool, double>(false,
@@ -162,16 +160,19 @@ Graph create_KronGen_graph(const Config& cfg,
     }
 
     // Create map of objective functions and weights, and output info message.
-    // All weights are 1.0 for now.
     std::map<std::string, std::pair<double, objective_function>> objective_funcs;
     log->info("Assembling Kronecker graph with the following properties: ");
     for (const auto& p : targets) {
 
         const std::string param = p.first;
+
         // If parameter is not a target value, continue
         if (targets[param]["target"].first == false){
             continue;
         }
+
+        const Config parameter_cfg = get_as<Config>(p.first, cfg["targets"]);
+
 
         // Degree sequence is not determined via an objective function
         if (param == "degree_sequence") {
@@ -180,27 +181,40 @@ Graph create_KronGen_graph(const Config& cfg,
         }
         // Collect objective functions for the various target parameters
         if (param == "clustering") {
+
             objective_funcs[param]
-            = std::make_pair<double, objective_function>(1.0, ObjectiveFuncs::clustering_obj_func);
+            = std::make_pair<double, objective_function>(
+              get_as<double>("weight", parameter_cfg),
+              ObjectiveFuncs::clustering_obj_func);
         }
         else if (param == "diameter") {
             objective_funcs[param]
-            = std::make_pair<double, objective_function>(1.0, ObjectiveFuncs::diameter_obj_func);
+            = std::make_pair<double, objective_function>(
+              get_as<double>("weight", parameter_cfg),
+              ObjectiveFuncs::diameter_obj_func);
         }
         else if (param == "mean_degree") {
             objective_funcs[param]
-            = std::make_pair<double, objective_function>(1.0, ObjectiveFuncs::k_obj_func);
+            = std::make_pair<double, objective_function>(
+              get_as<double>("weight", parameter_cfg),
+              ObjectiveFuncs::k_obj_func);
         }
         else if (param == "num_vertices") {
             objective_funcs[param]
-            = std::make_pair<double, objective_function>(1.0, ObjectiveFuncs::N_obj_func);
+            = std::make_pair<double, objective_function>(
+              get_as<double>("weight", parameter_cfg),
+              ObjectiveFuncs::N_obj_func);
         }
         log->info("{}: {}", param, std::any_cast<double>(targets[param]["target"].second));
     }
 
     // Get grid search parameters: get minimum and maximum factor size
-    const size_t d_min = get_as<size_t>("min_dimension", cfg["KronGen"]);
-    const size_t d_max = get_as<size_t>("max_dimension", cfg["KronGen"]);
+    const size_t d_min = get_as<size_t>("min_dimension", cfg);
+    const size_t d_max = get_as<size_t>("max_dimension", cfg);
+    const size_t d_mu = get_as<size_t>("num_mu", cfg);
+    if (d_min > d_max) {
+        throw std::invalid_argument("Dimension arguments incorrect!");
+    }
 
     // Get grid center
     const auto N_0 = std::any_cast<double>(targets["num_vertices"]["target"].second);
@@ -208,11 +222,11 @@ Graph create_KronGen_graph(const Config& cfg,
     const auto grid_center = std::make_pair<size_t, size_t>(N_0, k_0);
 
     // Get grid search scope
-    const double tolerance = get_as<double>("tolerance", cfg["KronGen"]);
+    const double tolerance = get_as<double>("tolerance", cfg);
 
     // Perform grid search
     const auto Paretos = GridSearch::get_Paretos<Graph>(
-        d_min, d_max, grid_center, tolerance, targets, objective_funcs, log, rng
+        d_min, d_max, d_mu, grid_center, tolerance, targets, objective_funcs, log, rng
     );
 
     // Collect the number of Pareto points found
@@ -255,10 +269,10 @@ Graph create_KronGen_graph(const Config& cfg,
         }
 
         // Create graph
+        log->debug("Current factor: {} graph with {} vertices, mean degree k = {}{}" ,
+                   Graph_Type[graph.type], graph.num_vertices, graph.mean_degree,
+                   graph.type == KlemmEguiluz ? ", mu = "+std::to_string(graph.mu) : "");
         Graph H = AuxGraphs::create_graph<Graph>(graph, rng);
-        log->debug("Current factor: {} graph with {} vertices, mean degree k = {}",
-                   GraphProperties::Graph_Type[graph.type], graph.num_vertices, graph.mean_degree);
-
         // Calculate properties of Kronecker product
         Utils::calculate_properties(H, targets, log);
 
@@ -290,7 +304,7 @@ Graph create_KronGen_graph(const Config& cfg,
  * \tparam RNG          The random number generator type
  * \tparam Logger       The logger type
  *
- * \param cfg           The configuration
+ * \param cfg           The KronGen configuration
  * \param rng           The random number generator
  * \param log           The model logger
  * \param includes_analysis_cfg   Whether or not the config includes configuration
@@ -349,7 +363,7 @@ Graph create_graph(const Config& cfg,
 
     else if (model == "KronGen") {
         const bool build_graph = get_as<bool>("build_graph", graph_cfg);
-        return create_KronGen_graph<Graph>(graph_cfg, build_graph, rng, log, nw_cfg);
+        return create_KronGen_graph<Graph>(graph_cfg["KronGen"], build_graph, rng, log, nw_cfg);
     }
 
     // If the graph is not a Kronecker product graph, directly generate the graph

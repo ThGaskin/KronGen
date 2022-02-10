@@ -234,12 +234,10 @@ map_type get_analysis_targets(
                       }};
 
         analysis_targets["num_vertices"]["target"]
-          = make_pair<const bool, const double>(true, get_as<double>("num_vertices", target_cfg));
+          = make_pair<const bool, const double>(true, get_as<double>("value", target_cfg["num_vertices"]));
 
         for (const auto& param : target_cfg){
             const string param_name = param.first.as<string>();
-
-            // Avoid typing errors in degree distribution key
             if (param_name == "degree_sequence") {
 
                 if (get_as<string>(param_name, target_cfg) == ""){
@@ -255,14 +253,14 @@ map_type get_analysis_targets(
                 analysis_targets[param_name]
                 = entry_type{{"calculate", make_pair<bool, double>(true, 1)},
                              {"target", make_pair<const bool, const double>
-                             (true, get_as<double>(param_name, target_cfg))
+                             (true, get_as<double>("value", target_cfg[param_name]))
                             }};
             }
             else {
                 analysis_targets[param_name]
                 = entry_type{{"calculate", make_pair<bool, double>(true, 0)},
                              {"target", make_pair<const bool, const double>
-                             (true, get_as<double>(param_name, target_cfg))
+                             (true, get_as<double>("value", target_cfg[param_name]))
                             }};
             }
             if (param_name == "clustering") {

@@ -67,7 +67,7 @@ std::vector<std::vector<GraphType>> find_possible_types (
                           const factor& n,
                           const factor& k,
                           TargetMap& analysis_and_targets,
-                          const double& grid_size)
+                          const double& grid_range)
 {
 
     std::vector<std::vector<GraphType>> type_list
@@ -77,7 +77,7 @@ std::vector<std::vector<GraphType>> find_possible_types (
 
     // Include chain graphs if the diameter is a target parameter
     if (Utils::is_param(analysis_and_targets, "diameter")) {
-        double err = grid_size;
+        double err = grid_range;
         int best_candidate = -1;
         for (size_t i = 0; i < n.size(); ++i) {
             if (k[i] > 2) {
@@ -130,7 +130,7 @@ std::vector<std::vector<GraphType>> find_possible_types (
 // Generates a grid of graph descriptors
 template <typename TargetMap, typename Logger, typename RNGType>
 ParetoSet generate_grid(const std::pair<size_t, size_t>& grid_center,
-                        const double& grid_size,
+                        const double& grid_range,
                         const size_t& min_factors,
                         const size_t& max_factors,
                         TargetMap& analysis_and_targets,
@@ -144,16 +144,23 @@ ParetoSet generate_grid(const std::pair<size_t, size_t>& grid_center,
 
     log->debug("Factorising N and k ...");
 
-    auto n_grid = Utils::get_N_grid(grid_center.first, grid_size,
+    auto n_grid = Utils::get_N_grid(grid_center.first, grid_range,
                                     min_factors, max_factors);
-    auto k_grid = Utils::get_k_grid(grid_center.second, grid_size,
+    auto k_grid = Utils::get_k_grid(grid_center.second, grid_range,
                                     min_factors, max_factors);
 
-    // If no factorisation is possible, use grid centers
-    if (n_grid.empty() or k_grid.empty()) {
-        log->warn("No factorisation of either N or k possible! Increase values.");
-        n_grid = {{grid_center.first}};
-        k_grid = {{grid_center.second}};
+    // If no factorisation is possible, decrease grid center values
+    if (n_grid.empty()) {
+        log->warn("No factorisation of N = {} possible! Decreasing value.",
+                  grid_center.first);
+        std::pair<size_t, size_t> grid_center_mod = {std::max(size_t(4), grid_center.first-1), grid_center.second};
+        return generate_grid(grid_center_mod, grid_range, min_factors, max_factors, analysis_and_targets, log, rng);
+    }
+    else if (k_grid.empty()) {
+        log->warn("No factorisation of k = {} possible! Decreasing value.",
+                  grid_center.second);
+        std::pair<size_t, size_t> grid_center_mod = {grid_center.first, std::max(grid_center.second-1, size_t(3))};
+        return generate_grid(grid_center_mod, grid_range, min_factors, max_factors, analysis_and_targets, log, rng);
     }
 
     double mu_0 = prob_distr(rng);
@@ -173,7 +180,7 @@ ParetoSet generate_grid(const std::pair<size_t, size_t>& grid_center,
 
             // Collect possible graph types
             const auto types = find_possible_types(n, k,
-                analysis_and_targets, grid_size);
+                analysis_and_targets, grid_range);
 
             for (const auto& t : types) {
                 ParetoPoint p = {};
@@ -195,37 +202,36 @@ ParetoSet generate_grid(const std::pair<size_t, size_t>& grid_center,
 /// AOF grid search: return candidates from a grid that minimise objective an
 /// aggregate Hamiltonian.
 /**
-  * \tparam Logger              The logger type
-  *
   * \param min_factors          Minimum number of Kronecker factors
   * \param max_factors          Maximum number of Kronecker factors
   * \param grid_center          Center of the grid to be searched
-  * \param grid_size            The size of the grid
+  * \param grid_range           The range of the grid in N, k
   * \param targets              The names and values of the target parameters
   * \param objective_funcs      The weights and objective functions used in the
                                 aggregate objective function
   * \param log                  The model logger
+  * \param rng                  The model rng
   *
   * \return ParetoSet           A vector of graph tuples (Pareto points)
   */
-template<typename Logger, typename RNGType, typename TargetMap, typename ObjFuncMap>
+template<typename Logger, typename RNGType, typename ObjFuncMap>
 ParetoSet grid_search(const size_t& min_factors,
-                            const size_t& max_factors,
-                            const std::pair<size_t, size_t>& grid_center,
-                            const double& grid_size,
-                            TargetMap& analysis_and_targets,
-                            ObjFuncMap& objective_funcs,
-                            const Logger& log,
-                            RNGType& rng)
+                      const size_t& max_factors,
+                      const std::pair<size_t, size_t>& grid_center,
+                      const double& grid_range,
+                      map_type& analysis_and_targets,
+                      ObjFuncMap& objective_funcs,
+                      const Logger& log,
+                      RNGType& rng)
 {
 
     // Get the graph grid
     ParetoSet Grid = generate_grid(
-      grid_center, grid_size, min_factors, max_factors,
-      analysis_and_targets, log, rng
+        grid_center, grid_range, min_factors, max_factors,
+        analysis_and_targets, log, rng
     );
 
-    // Initialise vector for resulting factors and resulting error
+    // Initialise vector for optimal factors and global optimisation error
     ParetoSet Paretos = {};
     double global_error = 0;
 
@@ -268,98 +274,112 @@ ParetoSet grid_search(const size_t& min_factors,
 }
 
 // Grid search for scale-free graphs (WIP)
-template<typename Graph, typename Logger, typename RNGType, typename TargetMap>
+/**
+  * \param num_factors          Number of Kronecker factors
+  * \param grid_center          Center of the grid to be searched
+  * \param grid_range           The range of the grid for N, k, mu
+  * \param num_mu               The size of mu_grid
+  * \param analysis_and_targets The names and values of the target parameters
+  * \param log                  The model logger
+  * \param rng                  The model rng
+  *
+  * \return ParetoSet           A vector of graph tuples (Pareto points)
+  */
+template<typename Graph, typename Logger, typename RNGType>
 ParetoSet grid_search_SF(const size_t& num_factors,
-                               const std::pair<size_t, size_t>& grid_center,
-                               const double grid_size,
-                               TargetMap& analysis_and_targets,
-                               const Logger& log,
-                               RNGType& rng)
+                         const std::pair<size_t, size_t>& grid_center,
+                         const double grid_range,
+                         const size_t& num_mu,
+                         map_type& analysis_and_targets,
+                         const Logger& log,
+                         RNGType& rng)
 {
-    // TO DO: This must be generalised to arbitrary target parameters
-    const double c_T = std::any_cast<double>(analysis_and_targets["clustering"]["target"].second);
 
     // Get the graph grid
-    // TO DO: Setting grid size in N, k to 0 returns empty or single grid
-    // when N or k have no factors. Example: k = 150
     ParetoSet Grid = generate_grid(
-      grid_center, 0, num_factors, num_factors, analysis_and_targets, log, rng
+        grid_center, 0, num_factors, num_factors, analysis_and_targets, log, rng
     );
 
     // Initialise vector for resulting factors and resulting error
     ParetoSet Paretos = {};
-
-    // Initialise optimisation error and get target parameter
     double global_error = 0;
 
-    // Get estimated ideal mu parameter from grid
-    double mu_0 = Grid[0][0].mu;
+    // Get estimated ideal mu parameter from grid and generate mu grid
+    // TO DO: This must be generalised to arbitrary target parameters
+    // TO DO: control the fineness of mu grid from frontend
+    const double mu_0 = Grid[0][0].mu;
+    const auto mu_grid = Utils::get_mu_grid(mu_0, grid_range, num_mu);
 
-    // Perform grid search
+    // Extract target parametes from the analysis_and_targets map and place into
+    // separate map
+    const auto targets = Utils::extract_targets(analysis_and_targets);
+
+    // Perform grid search over N and k
     log->debug("Commencing grid search ...");
     for (const auto& g : Grid) {
 
-        auto graphs = g;
         // Take out largest factor in graph list
+        auto graphs = g;
         size_t n_max = 0, n_max_idx = 0;
         for (size_t i = 0; i < graphs.size(); ++i) {
-            if (graphs[i].num_vertices > n_max){
+            if (1000 > graphs[i].num_vertices > n_max){
                 n_max = graphs[i].num_vertices;
                 n_max_idx = i;
             }
         }
-        graphs.erase(graphs.begin(), graphs.begin()+n_max_idx);
+        graphs.erase(graphs.begin()+n_max_idx);
 
-        // Generate Kronecker graph from all factors except the largest component
-        // and calculate error
-        double n_G = 1;
-        double k_G = 0, c_G = 0, var_G = 0;
+        // Create a map to keep track of analysis targets
+        map_type analysis_values;
+        for (const auto& p : targets) {
+            if (p.first == "num_vertices") {
+                analysis_values[p.first]
+                = entry_type{{"calculate", std::make_pair<bool, double>(true, 1)}};
+            }
+            else {
+                analysis_values[p.first]
+                = entry_type{{"calculate", std::make_pair<bool, double>(true, 0)}};
+            }
+            if (p.first == "clustering") {
+                analysis_values["degree_variance"]
+                = entry_type{{"calculate", std::make_pair<bool, double>(true, 0)}};
+                analysis_values["mean_degree"]
+                = entry_type{{"calculate", std::make_pair<bool, double>(true, 0)}};
+            }
+        }
 
-        // TO DO: Generalise this for arbitrary target parameters!
+        // Generate Kronecker product of all graphs except factor selected for
+        // grid search in mu
         for (const auto& graph : graphs) {
 
             const Graph H = AuxGraphs::create_graph<Graph>(graph, rng);
-            const double c_H = NetworkAnalyser::global_clustering_coeff(H);
-            const auto deg_stats = NetworkAnalyser::degree_statistics(H);
 
-            c_G = Utils::Kronecker_clustering(c_H, c_G, deg_stats.first, k_G,
-                                              deg_stats.second, var_G);
+            Utils::calculate_properties(H, analysis_values, log);
 
-            var_G = Utils::Kronecker_degree_variance(deg_stats.first, k_G,
-                                                     deg_stats.second, var_G);
-
-            k_G = Utils::Kronecker_mean_degree(deg_stats.first, k_G);
-            n_G = Utils::Kronecker_num_vertices(graph.num_vertices, n_G);
         }
-
-        // TO DO: control the fineness of mu grid from frontend
-        const auto mu_grid = Utils::get_mu_grid(mu_0, grid_size, 10);
 
         // Perform a grid search over mu for the largest component
         auto special_graph = g[n_max_idx];
+
+        log->debug("Commencing grid search in mu over graph with N={}, k={} ... ",
+            special_graph.num_vertices, special_graph.mean_degree);
+
         for (const auto& mu : mu_grid) {
             special_graph.mu = mu;
+            map_type temporary_analysis_values = analysis_values;
 
-            // Generate graph
+            // Generate graph and calculate resulting properties
             const Graph H = AuxGraphs::create_graph<Graph>(special_graph, rng);
-            const double c_H = NetworkAnalyser::global_clustering_coeff(H);
-            const auto deg_stats = NetworkAnalyser::degree_statistics(H);
+            Utils::calculate_properties(H, temporary_analysis_values, log);
 
-            // Calculate resulting properties
-            double n_res =  Utils::Kronecker_num_vertices(special_graph.num_vertices, n_G);
-            double k_res =  Utils::Kronecker_mean_degree(deg_stats.first, k_G);
-            double c_res =  Utils::Kronecker_clustering(c_H, c_G,
-                                                        deg_stats.first, k_G,
-                                                        deg_stats.second, var_G);
-
-            // Calculate resulting error
-            double current_error = (ObjectiveFuncs::err_func(n_res, grid_center.first)
-                                + ObjectiveFuncs::err_func(k_res, grid_center.second)
-                                + ObjectiveFuncs::err_func(c_res, c_T));
-
-            // If error is equal or reduced, add current factorisation
-            // to set of Pareto points. If error is reduced, delete
-            // previous Pareto points
+            // Calculate optimisation error. If error is equal or reduced,
+            // add current factorisationto set of Pareto points. If error is
+            // reduced, delete previous Pareto points
+            double current_error = 0;
+            for (const auto& p : targets) {
+                current_error += ObjectiveFuncs::err_func(std::any_cast<double>(temporary_analysis_values[p.first]["calculate"].second),
+                                                          p.second);
+            }
             if ((current_error <= global_error) or (Paretos.empty())){
 
                 if (current_error  < global_error) {
@@ -372,7 +392,6 @@ ParetoSet grid_search_SF(const size_t& num_factors,
                 global_error = current_error;
             }
         }
-        break;
     }
 
     // Write the global error value and return the Pareto points
@@ -386,19 +405,20 @@ ParetoSet grid_search_SF(const size_t& num_factors,
 template<typename Graph, typename Logger, typename RNGType, typename TargetMap, typename ObjFuncMap>
 ParetoSet get_Paretos(const size_t& min_factors,
                       const size_t& max_factors,
+                      const size_t& num_mu,
                       const std::pair<size_t, size_t>& grid_center,
-                      const double& grid_size,
+                      const double& grid_range,
                       TargetMap& analysis_and_targets,
                       ObjFuncMap& objective_funcs,
                       const Logger& log,
                       RNGType& rng)
 {
     if (Utils::is_target(analysis_and_targets, "degree_sequence", "scale-free")) {
-        return grid_search_SF<Graph>(min_factors, grid_center, grid_size,
+        return grid_search_SF<Graph>(min_factors, grid_center, grid_range, num_mu,
                                      analysis_and_targets, log, rng);
     }
     else {
-        return grid_search(min_factors, max_factors, grid_center, grid_size,
+        return grid_search(min_factors, max_factors, grid_center, grid_range,
                            analysis_and_targets, objective_funcs, log, rng);
     }
 }

@@ -59,7 +59,7 @@ BOOST_FIXTURE_TEST_CASE(test_Kronecker_properties, Test_Graph)
 
           // Check degree sequence
           const auto deg_seq = degree_sequence(G);
-          BOOST_TEST_CHECKPOINT("Testing degree distribution variance");
+          BOOST_TEST_CHECKPOINT("Testing degree sequence");
           BOOST_TEST(deg_seq == G[0].state.degree_sequence);
 
           const auto deg_stats = degree_statistics(G);

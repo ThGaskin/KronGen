@@ -21,15 +21,32 @@ create_graph:
   build_graph: true
   <<: *defaults
   KronGen:
-    min_dimension: 2
-    max_dimension: 6
-    tolerance: 0.1
+    min_dimension: !param
+      description: The minimum factorisation dimension
+      default: 2
+      limits: [1, ~]
+      dtype: uint
+    max_dimension: !param
+      description: The maximum factorisation dimension. Must be geq min_dimension
+      default: 6
+      limits: [1, ~]
+      dtype: uint
+    num_mu: !param
+      description: The number of points in the mu grid
+      default: 10
+      limits: [1, ~]
+      dtype: uint
+    tolerance: !param
+      description: The deviation of the grid bounds from the grid center
+      default: 0.1
+      limits: [0, ~]
     targets:
-      num_vertices: 100
-      mean_degree: 10
+      num_vertices:
+        value: !is-positive-int 300
+        weight: 1.0
       degree_sequence: !param
         default: ""
-        is_any_of: ["", "scale-free", "normal"]
+        is_any_of: ["", scale-free, normal]
         dtype: str
 
 # Graph analysis

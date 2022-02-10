@@ -38,7 +38,6 @@ clustering:
     fields:
       data_val:
         path: data/KronGen/NetworkAnalyser/graph_data/clustering_global
-  target: clustering
   <<: [*sweep_param, *x_coord]
   compute_only: [save_data, data, the_dm]
   helpers:

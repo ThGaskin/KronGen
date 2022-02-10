@@ -61,7 +61,7 @@ struct GraphDesc {
 // A Pareto point is a list of graph descriptors
 using ParetoPoint = typename std::vector<GraphDesc>;
 
-// A Pareto set if a list of Pareto points
+// A Pareto set is a list of Pareto points
 using ParetoSet = typename std::vector<ParetoPoint>;
 
 // Convenient printing function for graph types

@@ -20,10 +20,10 @@ def multiline(data,
         target (str): the parameter name
         plot_kwargs (dict, optional): kwargs passed to the pcolor plot function
     """
-
     to_plot = data['data']
-    x_data = to_plot.coords[x].data
+    x_data = to_plot.coords['value'].data
     y_data = to_plot.data_vars['y'].data
+
     hlpr.ax.plot(x_data, y_data, **plot_kwargs)
 
     hlpr.ax.grid(linewidth=0.5, alpha=0.5)
@@ -40,12 +40,13 @@ def multiline(data,
 
     target = x if target is None else target
     target_vals = finditem(target, dm)
+    target_vals = finditem('value', target_vals)
     if (target_vals is not None and plot_target_line):
         try:
             t = [i for i in target_vals]
         except:
-            t = target_vals*np.ones(len(to_plot.coords[x].data))
+            t = target_vals*np.ones(len(to_plot.coords['value'].data))
 
-        hlpr.ax.plot(to_plot.coords[x].data, t, color='black', linestyle='dashed',
+        hlpr.ax.plot(to_plot.coords['value'].data, t, color='black', linestyle='dashed',
                      label='Target', zorder=-1)
         hlpr.ax.legend()
