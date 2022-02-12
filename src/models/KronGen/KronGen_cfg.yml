@@ -17,17 +17,37 @@ create_graph:
       oriented: !is-bool false
       p_rewire: !is-probability 0.2
 
-  num_vertices: !is-positive-int 300
-  mean_degree: !is-positive 8
   model: KronGen
   build_graph: true
   <<: *defaults
   KronGen:
-    build_graph: true
-    clustering: 0.5
-    min_dimension: 2
-    max_dimension: 6
-    tolerance: 0.1
+    min_dimension: !param
+      description: The minimum factorisation dimension
+      default: 2
+      limits: [1, ~]
+      dtype: uint
+    max_dimension: !param
+      description: The maximum factorisation dimension. Must be geq min_dimension
+      default: 6
+      limits: [1, ~]
+      dtype: uint
+    num_mu: !param
+      description: The number of points in the mu grid
+      default: 10
+      limits: [1, ~]
+      dtype: uint
+    tolerance: !param
+      description: The deviation of the grid bounds from the grid center
+      default: 0.1
+      limits: [0, ~]
+    targets:
+      num_vertices:
+        value: !is-positive-int 300
+        weight: 1.0
+      degree_sequence: !param
+        default: ""
+        is_any_of: ["", scale-free, normal]
+        dtype: str
 
 # Graph analysis
 NetworkAnalyser:
@@ -37,10 +57,11 @@ NetworkAnalyser:
   graph_analysis:
     enabled: true
     centralities: false
-    clustering_coeff: false
-    clustering_global: false
+    clustering_local: false
+    clustering: false
     core_number: false
     degree: true
+    degree_sequence: false
     diameter: false
     distances: false
     reciprocity: false

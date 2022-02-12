@@ -10,8 +10,11 @@
 #include "utopia/core/types.hh"
 #include "utopia/core/graph/creation.hh"
 
+#include "type_definitions.hh"
+
 namespace Utopia::Models::KronGen::AuxGraphs {
 
+using namespace Utopia::Models::KronGen::TypeDefinitions;
 /// Auxiliary graphs used in the KronGen model
 
 /// Create a k-regular graph with zero clustering.
@@ -25,15 +28,13 @@ Graph create_zero_c_graph(const std::size_t N, const std::size_t k)
 {
 
     if (N < 2*k) {
-        throw std::invalid_argument("N must be at least equal to 2k!");
+        throw std::invalid_argument("N must be greater or equal to 2k!");
     }
-
-    else if (N%2) {
+    if (N%2) {
         throw std::invalid_argument("N must be even!");
     }
-
     if (k < 2) {
-        return Utopia::Graph::create_complete_graph<Graph>(2);
+        throw std::invalid_argument("k must be greater or equal to 2!");
     }
 
     Graph g{N};
@@ -158,13 +159,43 @@ Graph create_star_graph(const std::size_t N,
             add_edge(x, y, g);
         }
     }
-    //randomise(g, diameter);
+
     return g;
 
 }
 
-/// Extended create_graph function: calls the Utopia::Graph function of the
-/// same name
+// Create graph from a graph description
+template<typename Graph, typename RNGType>
+Graph create_graph(GraphDesc graph,
+                   RNGType& rng) {
+
+    if ((graph.num_vertices == graph.mean_degree+1) or
+        (graph.type == GraphType::Complete))
+    {
+        return Utopia::Graph::create_complete_graph<Graph>(graph.num_vertices);
+    }
+    else if (graph.type == GraphType::Chain) {
+        return create_chain_graph<Graph>(graph.num_vertices);
+    }
+    else if (graph.type == GraphType::ErdosRenyi) {
+        return Utopia::Graph::create_ErdosRenyi_graph<Graph>(
+          graph.num_vertices, graph.mean_degree, false, false, rng);
+    }
+    else if (graph.type == GraphType::KlemmEguiluz) {
+        return Utopia::Graph::create_KlemmEguiluz_graph<Graph>(
+          graph.num_vertices, graph.mean_degree, graph.mu, rng);
+    }
+    else if (graph.type == GraphType::Regular) {
+        return Utopia::Graph::create_regular_graph<Graph>(
+          graph.num_vertices, graph.mean_degree, false);
+    }
+    else {
+        return Graph{};
+    }
+}
+
+/// Extended Utopia::create_graph function: calls the Utopia::Graph function of the
+/// same name while adding some additional, custom graphs
 template<typename Graph, typename RNGType>
 Graph create_graph(const Config& graph_cfg, RNGType& rng)
 {
@@ -191,6 +222,7 @@ Graph create_graph(const Config& graph_cfg, RNGType& rng)
             rng
         );
     }
+
     else {
         return Utopia::Graph::create_graph<Graph>(graph_cfg, rng);
     }

@@ -37,7 +37,7 @@ create_graph:
 graph_analysis:
   enabled: true
   centralities: false
-  clustering_coeff: false
+  clustering_local: false
   core_number: true
   degree: true
   distances: true

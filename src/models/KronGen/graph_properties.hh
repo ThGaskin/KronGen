@@ -1,11 +1,15 @@
 #ifndef UTOPIA_MODELS_KRONGEN_GRAPHPROPERTIES
 #define UTOPIA_MODELS_KRONGEN_GRAPHPROPERTIES
 
-#include "graph_types.hh"
+#include "aux_graphs.hh"
+#include "type_definitions.hh"
+#include "utils.hh"
+#include "../NetworkAnalyser/graph_metrics.hh"
 
 namespace Utopia::Models::KronGen::GraphProperties {
 
-using namespace Utopia::Models::KronGen::GraphTypes;
+using namespace Utopia::Models::KronGen::AuxGraphs;
+using namespace Utopia::Models::KronGen::TypeDefinitions;
 
 // ... Estimators for clustering coefficients  .................................
 
@@ -41,6 +45,20 @@ double clustering_regular(const size_t& N, const size_t& k)
         return res;
     }
 }
+/// Returns the clustering coefficient of a Barabasi Albert scale-free graph
+double clustering_BA(const double& N, const double& k)
+{
+    const double m = round(-0.5*sqrt(4.0*(pow(N, 2)) - 4.0*N*(k+1) + 1) + N - 0.5);
+    return (1.0*m/8) * (pow(log(N),2))/N;
+}
+
+double clustering_KE(const double& N, const double& k, const double& mu)
+{
+    const double m = round(-0.5*sqrt(4.0*(pow(N, 2)) - 4.0*N*(k+1) + 1) + N - 0.5);
+    const double c_K = 1.0/pow((mu+1), 3.5) * (2./3. - 7./(30*m) - 0.5/pow(m, 2));
+    const double c_B = (1.0*m/8) * (pow(log(N),2))/N;
+    return (mu * c_B + (1-mu)*c_K);
+}
 
 /// Returns an estimate of the clusering coefficient of various graph types
 /**
@@ -50,7 +68,12 @@ double clustering_regular(const size_t& N, const size_t& k)
  *
  * \return c    The estimated clustering coefficient
  */
-double clustering_estimation(const double& N, const double& k, const GraphType& t)
+template<typename Graph, typename RNGType>
+double clustering_estimation(const double& N,
+                             const double& k,
+                             const GraphType& t,
+                             const double c_t,
+                             RNGType& rng)
 {
     if (t == GraphType::Chain) {
         return 0;
@@ -60,6 +83,14 @@ double clustering_estimation(const double& N, const double& k, const GraphType& 
     }
     else if (t == GraphType::Regular){
         return clustering_regular(N, k);
+    }
+    else if (t == GraphType::BarabasiAlbert){
+        return clustering_BA(N, k);
+    }
+    else if (t == GraphType::KlemmEguiluz){
+        const GraphDesc g = {static_cast<size_t>(N), static_cast<size_t>(k), t, Utils::mu_inv(N, k, c_t)};
+        const auto g_temp = AuxGraphs::create_graph<Graph>(g, rng);
+        return NetworkAnalyser::global_clustering_coeff(g_temp);
     }
     else {
         return clustering_ER(N, k);

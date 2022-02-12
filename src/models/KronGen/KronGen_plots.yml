@@ -24,6 +24,13 @@ nw_stats:
   module: model_plots.KronGen
   plot_func: network_stats
 
+degree_distribution:
+  based_on: KronGen_default
+  creator: universe
+  universes: all
+  module: model_plots.KronGen
+  plot_func: degree_distribution
+
 ### ... 1D Multiverse plots .....................................................
 clustering:
   based_on: sweep_stats
@@ -31,7 +38,6 @@ clustering:
     fields:
       data_val:
         path: data/KronGen/NetworkAnalyser/graph_data/clustering_global
-  target: clustering
   <<: [*sweep_param, *x_coord]
   compute_only: [save_data, data, the_dm]
   helpers:

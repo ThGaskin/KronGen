@@ -20,12 +20,30 @@ namespace Utopia::Models::NetworkAnalyser
 
 using vector = typename std::vector<double>;
 
+// Calculate the degree sequence of a graph
+template<typename GraphType>
+std::vector<std::pair<size_t, size_t>> degree_sequence(const GraphType& g)
+{
+    std::vector<std::pair<size_t, size_t>> deg_seq;
+    std::vector<size_t>indices(boost::num_vertices(g), 0);
+    for (const auto v : range<IterateOver::vertices>(g)){
+        const size_t k = boost::degree(v, g);
+        ++indices[k];
+    }
+    for (size_t i = 0; i<indices.size(); ++i){
+        if (indices[i] > 0) {
+            deg_seq.push_back({i, indices[i]});
+        }
+    }
+    return deg_seq;
+}
+
 /// Calculate the betweenness centrality of each vertex.
 /// Calculate the closeness/relative betweenness centrality for each vertex
 /// (normalized with the highest possible value which would be reached
 ///  if a node is crossed by every single shortest path).
 template<typename GraphType>
-const std::pair<vector, vector> get_centralities(const GraphType& g)
+std::pair<vector, vector> get_centralities(const GraphType& g)
 {
     vector centrality(num_vertices(g));
 
